@@ -295,7 +295,7 @@ async function boot() {
   if (window.Lenis && !matchMedia('(prefers-reduced-motion: reduce)').matches) { const lenis = new Lenis({ lerp: 0.1 }); (function raf(t) { lenis.raf(t); requestAnimationFrame(raf); })(0); }
   document.querySelectorAll('.nav a, a[href^="#"]').forEach(a => a.addEventListener('click', ev => { const id = a.getAttribute('href'); if (id.startsWith('#effect-')) return; const t = document.querySelector(id); if (t) { ev.preventDefault(); t.scrollIntoView({ behavior: 'smooth' }); } }));
   // intro dive from the Local Group to Earth
-  const P = new URLSearchParams(location.search); if (P.has('nostage')) document.getElementById('stage').style.display = 'none';
+  const P = new URLSearchParams(location.search); if (P.has('yaw')) U.noAim = true; if (P.has('nostage')) document.getElementById('stage').style.display = 'none';
   if (P.has('z')) { U.logd = Z.zt = parseFloat(P.get('z')); if (P.has('yaw')) U.yaw = parseFloat(P.get('yaw')); if (P.has('pitch')) U.pitch = parseFloat(P.get('pitch')); if (P.has('ty')) { setTy(parseFloat(P.get('ty'))); S.playing = false; } if (P.has('focus')) U.focus = P.get('focus'); }
   else { U.logd = 21; Z.zt = 21; setTimeout(() => { if (window.gsap) gsap.to(Z, { zt: ZE, duration: 6.5, ease: 'power3.inOut', overwrite: true }); else Z.zt = ZE; }, 700); }
   setTimeout(() => { $('hint').style.opacity = 0; }, 12000);
