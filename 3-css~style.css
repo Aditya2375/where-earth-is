@@ -149,8 +149,8 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
  .tbRow{gap:8px;margin-bottom:6px}
  .tbDate{font-size:12px}.tbState{display:none}
  .legend{display:none}
- #hint{bottom:auto;top:128px;font-size:10px}
- #regimeBanner{bottom:auto;top:92px;font-size:11px}
+ #hint{bottom:138px;top:auto;font-size:10px}
+ #regimeBanner{bottom:auto;top:116px;font-size:11px}
  .tbBtns button,.tbBtns select{padding:5px 8px;font-size:10px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
