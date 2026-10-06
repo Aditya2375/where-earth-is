@@ -32,6 +32,9 @@
     <button data-z="17.95">Galaxy</button>
     <button data-z="20.2">Local Group</button>
     <button data-z="21.9">Superclusters</button>
+    <button data-z="23.1">Cosmic web</button>
+    <button data-z="24.15">Observable universe</button>
+    <button data-z="25.1">Entire universe</button>
     <div class="scalebar"><span id="scaleRead">--</span></div>
   </aside>
 
@@ -77,6 +80,7 @@
     </div>
     <div class="legend"><span class="k before">Before Earth</span><span class="k modeled">Modeled</span><span class="k precision">Exact ephemeris</span><span class="k modeled">Modeled</span><span class="k after">No Earth</span><em>Zone widths are not to scale in time.</em></div>
   </footer>
+  <div id="imgCap">Surface imagery is NASA photography: Blue Marble land, 2012 night lights, a static cloud composite (not live weather). Sun position, day and night, tilt and spin are computed live.</div>
   <div id="hint">Drag to rotate. Scroll or pinch to move through scale. Click a planet to follow it.</div>
   <div id="loading"><div class="ring"></div><p>Fetching Earth's state from JPL Horizons</p></div>
 </div>
@@ -125,7 +129,7 @@
       <div class="cols">
         <div><h3>Exact</h3><p>Positions and velocities of Earth, the Moon and the planets come from NASA JPL Horizons (DE441 ephemeris), served on request from 4712 BCE to 9999 CE. The page shows how old the state is and interpolates between fetches with the two-body motion it implies.</p></div>
         <div><h3>Modeled</h3><p>Earth's orientation uses IAU precession and obliquity series, accurate to arcminutes within a few centuries of today and extrapolated beyond. The galactic and CMB frames use published constants with stated uncertainty. Orbits become unpredictable beyond about 50 to 100 million years, so outside the ephemeris window the planets are drawn as orbits, not points.</p></div>
-        <div><h3>Schematic</h3><p>The Milky Way disc, the Local Group layout and the protoplanetary disc are drawn to show structure, not to map it. Stars to magnitude 6 are real positions. Anchor distances are rounded literature values.</p></div>
+        <div><h3>Schematic</h3><p>The Milky Way disc, the Local Group layout and the protoplanetary disc are drawn to show structure, not to map it. Stars to magnitude 6 are real positions. Anchor distances are rounded literature values. The soft Milky Way band behind the stars is a procedural impression placed on the true galactic plane and centre, not a photograph. The cosmic web at the largest scales is a schematic pattern, not a survey. The observable universe is 93 billion light-years across (NRAO). How much lies beyond it is unknown. Planck 2018 finds curvature consistent with flat, which does not settle whether space is finite. Earth's surface imagery is NASA photography: the cloud layer and the 2012 night-light map are fixed images, not live weather. What is live on Earth: the Sun's direction, which side is in daylight, the terminator, the tilt and the spin.</p></div>
       </div>
       <p class="fine">Rows in the ledger without a source link are order-of-magnitude figures from standard physics and are marked as estimates or bounds. Speculative ideas about other universes are not part of this site, which only shows physics with a source.</p>
       <h3 class="srcH">Sources</h3>
