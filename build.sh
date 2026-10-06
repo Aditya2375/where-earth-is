@@ -18,4 +18,6 @@ dl cloud-hi.jpg $N/57000/57747/cloud_combined_2048.jpg
 dl day-lo.jpg $T/earth_atmos_2048.jpg
 dl night-lo.png $T/earth_lights_2048.png
 dl spec.jpg $T/earth_specular_2048.jpg
+dl mercury.jpg https://images-assets.nasa.gov/image/PIA17386/PIA17386~orig.jpg
+dl jupiter.jpg https://images-assets.nasa.gov/image/PIA07782/PIA07782~orig.jpg
 ls -R public | head -60
