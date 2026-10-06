@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#05060a">
+<title>Where Earth is</title>
+<meta name="description" content="Earth's position and motion through the Solar System, the Galaxy and the cosmos, from NASA JPL ephemeris data. Grab it, zoom it, scrub time.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css">
+<link rel="preload" href="fonts/geist-300.woff2" as="font" type="font/woff2" crossorigin>
+<script src="vendor/gsap.min.js" defer></script>
+<script src="vendor/lenis.min.js" defer></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" aria-label="Interactive 3D view of Earth in the Solar System and Galaxy" role="img"></canvas>
+  <div id="labels"></div>
+
+  <header class="top">
+    <div class="brand"><span class="dot"></span>Where Earth is</div>
+    <nav class="nav"><a href="#ledger">Force ledger</a><a href="#rotation">Rotation</a><a href="#suggest">Suggest</a><a href="#honesty">Sources</a></nav>
+  </header>
+
+  <aside id="scale" aria-label="Scale">
+    <button data-z="4.4" class="on">Earth</button>
+    <button data-z="6.0">Earth + Moon</button>
+    <button data-z="8.4">Inner system</button>
+    <button data-z="10.5">Solar system</button>
+    <button data-z="17.95">Galaxy</button>
+    <button data-z="20.2">Local Group</button>
+    <button data-z="21.9">Superclusters</button>
+    <div class="scalebar"><span id="scaleRead">--</span></div>
+  </aside>
+
+  <section id="readout" class="panel" aria-live="off">
+    <button id="roToggle" class="roToggle" aria-expanded="true">Position <span>-</span></button>
+    <div class="roBody">
+      <div class="ro" id="roTime"></div>
+      <div class="ro" id="roHelio"></div>
+      <div class="ro" id="roEq"></div>
+      <div class="ro" id="roGal"></div>
+      <div class="ro" id="roCmb"></div>
+      <div class="ro" id="roOri"></div>
+      <div class="ro" id="roOdo"></div>
+    </div>
+  </section>
+
+  <div id="regimeBanner"><b id="rgName"></b><span id="rgText"></span></div>
+
+  <footer class="timebar">
+    <div class="tbRow">
+      <div class="tbBtns">
+        <button id="tNow" title="Back to now">Now</button>
+        <button id="tM1" title="Back one step">-</button>
+        <button id="tPlay" title="Play">Play</button>
+        <button id="tP1" title="Forward one step">+</button>
+        <select id="tRate" aria-label="Playback rate">
+          <option value="1">1 s per s</option>
+          <option value="3600">1 hour per s</option>
+          <option value="86400" selected>1 day per s</option>
+          <option value="2629800">1 month per s</option>
+          <option value="31557600">1 year per s</option>
+          <option value="3155760000">100 years per s</option>
+          <option value="3.15576e13">1 Myr per s</option>
+        </select>
+      </div>
+      <div class="tbDate" id="tDate">--</div>
+      <div class="tbState" id="tState">--</div>
+    </div>
+    <div class="track">
+      <div class="seg" id="segBefore"></div><div class="seg" id="segModelPast"></div><div class="seg" id="segPrec"></div><div class="seg" id="segModelFut"></div><div class="seg" id="segAfter"></div>
+      <input id="tSlider" type="range" min="0" max="1000" step="1" value="500" aria-label="Time">
+      <div class="ticks" id="ticks"></div>
+    </div>
+    <div class="legend"><span class="k before">Before Earth</span><span class="k modeled">Modeled</span><span class="k precision">Exact ephemeris</span><span class="k modeled">Modeled</span><span class="k after">No Earth</span><em>Zone widths are not to scale in time.</em></div>
+  </footer>
+  <div id="hint">Drag to rotate. Scroll or pinch to move through scale. Click a planet to follow it.</div>
+  <div id="loading"><div class="ring"></div><p>Fetching Earth's state from JPL Horizons</p></div>
+</div>
+
+<main>
+  <section id="ledger" class="sec">
+    <div class="wrap">
+      <p class="eyebrow">01 / Force ledger</p>
+      <h2>Everything that pushes on Earth, and by how much.</h2>
+      <p class="lede">Each row is one effect, with its size, how that size was obtained, and a status. Acceleration rows share one logarithmic scale, from the Sun's pull to effects 24 orders of magnitude smaller. This is the census: 105 entries from the established framework, plus 8 unconfirmed test branches listed last. It is a catalogue by category. It is not a proof that the list is complete, and not every row is an independent force. Do not add rows together.</p>
+      <div class="statusKey" id="statusKey"></div>
+      <div class="ledgerTools"><input id="lq" type="search" placeholder="Filter the ledger" aria-label="Filter the ledger"><span id="lcount"></span></div>
+      <div id="ledgerList"></div>
+    </div>
+  </section>
+
+  <section id="rotation" class="sec alt">
+    <div class="wrap">
+      <p class="eyebrow">02 / Rotation and orientation</p>
+      <h2>How Earth spins, tilts and wobbles.</h2>
+      <p class="lede">These effects change Earth's axis and day length rather than its path. Values are rates or sizes with units, not accelerations.</p>
+      <div id="rotList"></div>
+    </div>
+  </section>
+
+  <section id="suggest" class="sec">
+    <div class="wrap narrow">
+      <p class="eyebrow">03 / Suggestion box</p>
+      <h2>Know an effect that is missing?</h2>
+      <p class="lede">Describe it. Before anything is sent the site checks it against the ledger. If it is already covered you are taken to that entry. New ideas go to a review queue and are read by a person, with a source needed before anything is added.</p>
+      <form id="sForm" autocomplete="off" novalidate>
+        <label>Name of the effect<input id="sName" maxlength="120" required></label>
+        <label>What it does and why it matters<textarea id="sDesc" rows="5" maxlength="1500" required></textarea></label>
+        <label>Source link (paper, agency page), optional<input id="sSrc" maxlength="300" inputmode="url"></label>
+        <input id="sHp" class="hp" tabindex="-1" aria-hidden="true" autocomplete="off" name="website">
+        <button type="submit" id="sGo">Check and submit</button>
+      </form>
+      <div id="sOut" role="status"></div>
+    </div>
+  </section>
+
+  <section id="honesty" class="sec alt">
+    <div class="wrap">
+      <p class="eyebrow">04 / What is real</p>
+      <h2>Where the numbers come from.</h2>
+      <div class="cols">
+        <div><h3>Exact</h3><p>Positions and velocities of Earth, the Moon and the planets come from NASA JPL Horizons (DE441 ephemeris), served on request from 4712 BCE to 9999 CE. The page shows how old the state is and interpolates between fetches with the two-body motion it implies.</p></div>
+        <div><h3>Modeled</h3><p>Earth's orientation uses IAU precession and obliquity series, accurate to arcminutes within a few centuries of today and extrapolated beyond. The galactic and CMB frames use published constants with stated uncertainty. Orbits become unpredictable beyond about 50 to 100 million years, so outside the ephemeris window the planets are drawn as orbits, not points.</p></div>
+        <div><h3>Schematic</h3><p>The Milky Way disc, the Local Group layout and the protoplanetary disc are drawn to show structure, not to map it. Stars to magnitude 6 are real positions. Anchor distances are rounded literature values.</p></div>
+      </div>
+      <p class="fine">Rows in the ledger without a source link are order-of-magnitude figures from standard physics and are marked as estimates or bounds. Speculative ideas about other universes are not part of this site, which only shows physics with a source.</p>
+      <h3 class="srcH">Sources</h3>
+      <ul class="srcs" id="srcList"></ul>
+    </div>
+  </section>
+</main>
+</body>
+</html>
