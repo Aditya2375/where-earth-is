@@ -20,7 +20,7 @@ export function buildCosmos(U, L, tier) {
   });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('size', new THREE.Float32BufferAttribute(size, 1)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('alpha', new THREE.Float32BufferAttribute(al, 1));
   const pm = new THREE.ShaderMaterial({ vertexShader: PV, fragmentShader: PF, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uPx: { value: 1 }, uOp: { value: 1 } } });
-  const web = new THREE.Points(g, pm); web.frustumCulled = false; L.scene.add(web); pm.userData.base = 1; L.mats.push(pm);
+  const web = new THREE.Points(g, pm); web.frustumCulled = false; web.visible = false; L.scene.add(web); pm.userData.base = 1; L.mats.push(pm);
   // observable-universe shell
   const sm = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.FrontSide, blending: THREE.AdditiveBlending, uniforms: { uOp: { value: 1 }, uBoost: { value: 1 } },
     vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }',
@@ -35,13 +35,27 @@ export function buildCosmos(U, L, tier) {
   ghosts.forEach((p, i) => { const e = ring(R_OBS, 0.3, 0x8fd0ff, true); e.position.set(...p); L.scene.add(e); const e2 = ring(R_OBS, 0.18, 0x8fd0ff, true); e2.position.set(...p); e2.rotation.x = Math.PI / 2; L.scene.add(e2); });
   // far dashed rings: "size unknown" markers, fade outward
   [60, 120, 240].forEach((R, i) => { const e = ring(R, 0.09 - i * 0.02, 0xffffff, true); L.scene.add(e); });
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff4b2b, transparent: true })); dot.material.userData.base = 1; L.mats.push(dot.material); L.scene.add(dot);
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff4b2b, transparent: true })); dot.material.userData.base = 1; L.mats.push(dot.material); L.scene.add(dot);
   U.label(L, 'You are here', () => [0, 0, 0], '', null).rng = [22.9, 26.6];
   U.label(L, 'Observable universe: about 93 billion light-years across', () => [0, R_OBS, 0], 'sm', null).rng = [23.7, 24.9];
   U.label(L, 'Edge of what we can see', () => [0, -R_OBS, 0], 'sm', null).rng = [24.7, 26.6];
   U.label(L, 'Another observer\'s observable universe (illustrative)', () => [34 + R_OBS, 6, -12], 'sm', null).rng = [24.75, 26.6];
   U.label(L, 'Beyond this: unknown. The whole universe may be far larger, or infinite.', () => [0, -60, 0], '', null).rng = [24.75, 26.6];
   U.label(L, 'Planck 2018: curvature consistent with flat (Omega_K = 0.001 +/- 0.002)', () => [0, -75, 0], 'sm', null).rng = [24.9, 26.6];
-  U.label(L, 'Cosmic web: schematic, not a survey', () => [0, -R_OBS * 0.55, 0], 'sm', null).rng = [22.7, 24.2];
+  // Real galaxies: 2MASS Redshift Survey (Huchra et al. 2012, ApJS 199:26), fetched at build from VizieR.
+  const EPS = 84381.406 / 3600 * Math.PI / 180, ce = Math.cos(EPS), se = Math.sin(EPS), H0 = 70; // km/s/Mpc
+  const toW = (ra, de, d) => { const a = ra * Math.PI / 180, e = de * Math.PI / 180; const x = Math.cos(e) * Math.cos(a), y = Math.cos(e) * Math.sin(a), z = Math.sin(e); const ye = y * ce + z * se, ze = -y * se + z * ce; return [x * d, ze * d, -ye * d]; };
+  const SURVEY_R = 0.74; // Gpc, deepest 2MRS redshift (cz about 52,000 km/s) at H0 = 70
+  fetch('data/2mrs.csv').then(r => r.ok ? r.text() : Promise.reject()).then(txt => {
+    const P = [], S = [], C = [], A = []; let n = 0;
+    for (const ln of txt.split('\n')) { const f = ln.split(','); if (f.length < 4) continue; const cz = +f[2]; if (!(cz > 0)) continue; const d = cz / H0 / 1000; const p = toW(+f[0], +f[1], d); P.push(...p); const k = +f[3]; S.push(Math.max(1.3, Math.min(3.4, 4.4 - 0.28 * k))); const t = Math.min(1, d / SURVEY_R); C.push(1 - 0.25 * t, 0.78 - 0.1 * t, 0.55 + 0.45 * t); A.push(0.8); n++; }
+    const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g2.setAttribute('size', new THREE.Float32BufferAttribute(S, 1)); g2.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); g2.setAttribute('alpha', new THREE.Float32BufferAttribute(A, 1));
+    const real = new THREE.Points(g2, pm); real.frustumCulled = false; L.scene.add(real);
+    const sr = ring(SURVEY_R, 0.35, 0xffd9a0, true); L.scene.add(sr);
+    const gc = toW(266.405, -28.936, 0.45), gcn = toW(266.405, -28.936, 0.3);
+    U.label(L, '2MASS Redshift Survey: ' + n.toLocaleString('en-US') + ' real galaxies', () => [0, 0.5, 0], 'sm', null).rng = [22.3, 23.4];
+    U.label(L, 'Survey limit: 0.74 Gpc (2.4 billion ly)', () => [SURVEY_R, 0, 0], 'sm', null).rng = [22.7, 23.4];
+    U.label(L, 'Zone of avoidance: Milky Way dust hides galaxies', () => gc, 'sm', null).rng = [22.2, 23.2];
+  }).catch(() => { web.visible = true; U.label(L, 'Cosmic web: schematic, not a survey', () => [0, -R_OBS * 0.55, 0], 'sm', null).rng = [22.7, 24.2]; });
   return { web, shell, pm, sm };
 }
