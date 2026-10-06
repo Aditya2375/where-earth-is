@@ -1,5 +1,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import * as E from './engine.js';
+import { photoEarth, sunGlare, milkyWay, Post } from './photoreal.js';
+const TIER = (innerWidth < 860 || /Mobi|Android/i.test(navigator.userAgent)) ? 'low' : 'high';
 
 const KPC = 3.0856775814914e16, MPC = KPC * 1000, RE = E.R_EARTH;
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -38,7 +40,8 @@ export class Universe {
     this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth';
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
-    this.buildSky(); this.buildEarth(); this.buildSolar(); this.buildGalaxy(); this.buildLG();
+    this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.buildGalaxy(); this.buildLG();
+    try { this.post = new Post(this.r, TIER); } catch (e) { this.post = null; }
     this.resize(); addEventListener('resize', () => this.resize());
     this.bindInput();
   }
@@ -52,6 +55,7 @@ export class Universe {
   // ---- sky
   buildSky() {
     const L = this.mkLayer('sky', 1); this.stars = null;
+    { const P = E.toThree(E.galToEcl([0, 0, 1])), C = E.toThree(E.galToEcl([1, 0, 0])); this.mw = milkyWay(this, L, new THREE.Vector3(P[0], P[1], P[2]).normalize(), new THREE.Vector3(C[0], C[1], C[2]).normalize()); }
     this.hooks.stars.then(arr => {
       const pos = [], size = [], col = [], al = [];
       for (const [ra, dec, mag, bv] of arr) {
@@ -82,9 +86,10 @@ export class Universe {
     });
     // atmosphere
     this.atmoMat = new THREE.ShaderMaterial({ vertexShader: ATMO_V, fragmentShader: ATMO_F, transparent: true, depthWrite: false, side: THREE.BackSide, blending: THREE.AdditiveBlending, uniforms: { uOp: { value: 1 } } });
-    const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.07, 64, 48), this.atmoMat); atmo.renderOrder = 2; L.scene.add(atmo); this.atmoMat.userData.base = 1; L.mats.push(this.atmoMat);
+    const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.07, 64, 48), this.atmoMat); atmo.renderOrder = 2; atmo.visible = false; L.scene.add(atmo); this.atmoMat.userData.base = 1; L.mats.push(this.atmoMat);
     // dark occluder so far-side dots are hidden by shading, not depth
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.995, 48, 32), new THREE.MeshBasicMaterial({ color: 0x03040a })); L.scene.add(core); core.renderOrder = -5; core.material.transparent = true; core.material.userData.base = 1; L.mats.push(core.material);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.995, 48, 32), new THREE.MeshBasicMaterial({ color: 0x03040a })); L.scene.add(core); core.renderOrder = -5; this.coreMat = core; core.material.transparent = true; core.material.userData.base = 1; L.mats.push(core.material);
+    this.photoFx = photoEarth(this, L, TIER); this.glare = sunGlare(this, L);
     // graticule + axis in body frame
     const gl = []; for (let lat = -60; lat <= 60; lat += 30) { const p = []; for (let k = 0; k <= 96; k++) { const lo = k / 96 * 2 * Math.PI; p.push(new THREE.Vector3(Math.cos(lat * Math.PI / 180) * Math.cos(lo) * 1.002, Math.cos(lat * Math.PI / 180) * Math.sin(lo) * 1.002, Math.sin(lat * Math.PI / 180) * 1.002)); } gl.push(p); }
     for (let lo = 0; lo < 360; lo += 30) { const p = []; for (let k = 0; k <= 64; k++) { const la = (k / 64 - 0.5) * Math.PI; p.push(new THREE.Vector3(Math.cos(la) * Math.cos(lo * Math.PI / 180) * 1.002, Math.cos(la) * Math.sin(lo * Math.PI / 180) * 1.002, Math.sin(la) * 1.002)); } gl.push(p); }
@@ -178,7 +183,7 @@ export class Universe {
     const z = n === 'moon' ? 5.7 : n === 'earth' ? this.logd : 7.3 + (n === 'sun' ? 0.7 : 0.6);
     this.hooks.gotoZ(n === 'earth' ? Math.min(Math.max(this.logd, 3.95), 9.5) : z);
   }
-  resize() { const w = this.canvas.clientWidth, h = this.canvas.clientHeight; this.r.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); this.W = w; this.H = h; this.focalPx = (h / 2) / Math.tan((this.cam.fov * Math.PI / 180) / 2); }
+  resize() { const w = this.canvas.clientWidth, h = this.canvas.clientHeight; this.r.setSize(w, h, false); if (this.post) this.post.resize(); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); this.W = w; this.H = h; this.focalPx = (h / 2) / Math.tan((this.cam.fov * Math.PI / 180) / 2); }
   bindInput() {
     const c = this.canvas, ptrs = new Map(); let lastPinch = 0, moved = 0, down = null;
     c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0; down = { x: e.clientX, y: e.clientY, t: performance.now() }; lastPinch = 0; this.vy = this.vp = 0; });
@@ -210,15 +215,17 @@ export class Universe {
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; this.setOpacity(this.layers.sky, f.sky);
     this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
-    this.r.clear();
+    if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
     { const s = this.layers.sky; const cp = Math.cos(this.pitch), dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)); this.cam.position.set(0, 0, 0); this.cam.up.set(0, 1, 0); this.cam.lookAt(dir.clone().multiplyScalar(-1)); this.cam.near = 1; this.cam.far = 2000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
       if (this.stars) { this.stars.material.uniforms.uPx.value = this.r.getPixelRatio(); } this.r.render(s.scene, this.cam); }
     this.applyFrame(frame);
+    if (frame && !this.aimed && !this.noAim) { this.aimed = true; const sd = this.sunDir.clone().normalize(), up = new THREE.Vector3(0, 1, 0), rt = new THREE.Vector3().crossVectors(up, sd).normalize(); const d = sd.multiplyScalar(Math.cos(0.62)).addScaledVector(rt, Math.sin(0.62)).addScaledVector(up, 0.12).normalize(); this.yaw = Math.atan2(d.x, d.z); this.pitch = Math.asin(d.y); }
     for (const n of ['lg', 'galaxy', 'solar', 'earth']) {
       const L = this.layers[n], fv = f[n]; this.setOpacity(L, fv); if (fv < 0.01) continue;
       this.r.clearDepth(); this.camSetup(L); this.r.render(L.scene, this.cam);
     }
+    if (this.post) this.post.end(performance.now() * 0.001);
     this.placeLabels();
   }
   applyFrame(fr) {
@@ -228,7 +235,7 @@ export class Universe {
     m.set(Rt[0][0], Rt[0][1], Rt[0][2], 0, Rt[1][0], Rt[1][1], Rt[1][2], 0, Rt[2][0], Rt[2][1], Rt[2][2], 0, 0, 0, 0, 1);
     this.earthGroup.quaternion.setFromRotationMatrix(m); this.earthGroup.updateMatrixWorld(true);
     this.poleDir = new THREE.Vector3(Rt[0][2], Rt[1][2], Rt[2][2]);
-    this.sunDir.set(fr.sunDir[0], fr.sunDir[1], fr.sunDir[2]);
+    this.sunDir.set(fr.sunDir[0], fr.sunDir[1], fr.sunDir[2]); if (this.glare) { this.glare.position.copy(this.sunDir).multiplyScalar(60); const k = 1 + 0; this.glare.scale.set(15 * k, 15 * k, 1); }
     if (this.globeMat) { this.globeMat.uniforms.uSun.value.copy(this.sunDir); const u = this.globeMat.uniforms.uRot.value; u.set(Rt[0][0], Rt[0][1], Rt[0][2], Rt[1][0], Rt[1][1], Rt[1][2], Rt[2][0], Rt[2][1], Rt[2][2]); }
     this.moonShade.material.uniforms.uSun.value.copy(this.sunDir);
     this.sunLine.geometry.setFromPoints([this.sunDir.clone().multiplyScalar(1.25), this.sunDir.clone().multiplyScalar(3.2)]);
