@@ -157,3 +157,4 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
 
 #imgCap{position:absolute;left:50%;transform:translateX(-50%);bottom:98px;width:min(560px,calc(100vw - 40px));text-align:center;font:400 10px/1.5 var(--mono);color:var(--dim);letter-spacing:.03em;pointer-events:none;opacity:0;transition:opacity .6s;z-index:4}
 @media(max-width:860px){#imgCap{bottom:218px;font-size:9px}}
+@media(max-width:860px){.lbl{white-space:normal;width:max-content;max-width:min(230px,64vw);text-align:left;line-height:1.35}}
