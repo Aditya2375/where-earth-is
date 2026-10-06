@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.min.js';
 import * as E from './engine.js';
+import { buildCosmos, GPC_KM } from './cosmos.js';
 import { photoEarth, sunGlare, milkyWay, Post } from './photoreal.js';
 const TIER = (innerWidth < 860 || /Mobi|Android/i.test(navigator.userAgent)) ? 'low' : 'high';
 
@@ -40,7 +41,7 @@ export class Universe {
     this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth';
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
-    this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.buildGalaxy(); this.buildLG();
+    this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
     try { this.post = new Post(this.r, TIER); } catch (e) { this.post = null; }
     this.resize(); addEventListener('resize', () => this.resize());
     this.bindInput();
@@ -207,13 +208,13 @@ export class Universe {
   }
   fades() {
     const lg = this.logd, f = {};
-    f.earth = (this.showEarth === false ? 0 : 1) * (1 - sstep(6.4, 7.5, lg)); f.solar = sstep(5.2, 6.4, lg) * (1 - sstep(12.0, 13.4, lg)); f.galaxy = sstep(12.6, 13.9, lg) * (1 - sstep(18.4, 19.6, lg)); f.lg = sstep(18.7, 19.8, lg); f.sky = 1 - 0.8 * sstep(10, 14, lg) ;
-    f.sky *= 1 - sstep(17.5, 19.5, lg) * 0.6; return f;
+    f.earth = (this.showEarth === false ? 0 : 1) * (1 - sstep(6.4, 7.5, lg)); f.solar = sstep(5.2, 6.4, lg) * (1 - sstep(12.0, 13.4, lg)); f.galaxy = sstep(12.6, 13.9, lg) * (1 - sstep(18.4, 19.6, lg)); f.lg = sstep(18.7, 19.8, lg) * (1 - sstep(22.4, 23.2, lg)); f.univ = sstep(22.5, 23.3, lg); f.sky = 1 - 0.8 * sstep(10, 14, lg) ;
+    f.sky *= 1 - sstep(17.5, 19.5, lg) * 0.6; f.sky *= 1 - sstep(21.5, 22.8, lg); return f;
   }
   setOpacity(L, f) { const px = this.r.getPixelRatio(); for (const m of L.mats) { const b = m.userData.base ?? 1; if (m.uniforms) { if (m.uniforms.uOp) m.uniforms.uOp.value = f * b; if (m.uniforms.uPx) m.uniforms.uPx.value = px; } else { m.opacity = f * b; } if (!m.uniforms) m.visible = f > 0.01; } }
   setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; }
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
-    const f = this.fades(); this.f = f; this.setOpacity(this.layers.sky, f.sky);
+    const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
     this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
@@ -221,7 +222,7 @@ export class Universe {
       if (this.stars) { this.stars.material.uniforms.uPx.value = this.r.getPixelRatio(); } this.r.render(s.scene, this.cam); }
     this.applyFrame(frame);
     if (frame && !this.aimed && !this.noAim) { this.aimed = true; const sd = this.sunDir.clone().normalize(), up = new THREE.Vector3(0, 1, 0), rt = new THREE.Vector3().crossVectors(up, sd).normalize(); const d = sd.multiplyScalar(Math.cos(0.62)).addScaledVector(rt, Math.sin(0.62)).addScaledVector(up, 0.12).normalize(); this.yaw = Math.atan2(d.x, d.z); this.pitch = Math.asin(d.y); }
-    for (const n of ['lg', 'galaxy', 'solar', 'earth']) {
+    for (const n of ['univ', 'lg', 'galaxy', 'solar', 'earth']) {
       const L = this.layers[n], fv = f[n]; this.setOpacity(L, fv); if (fv < 0.01) continue;
       this.r.clearDepth(); this.camSetup(L); this.r.render(L.scene, this.cam);
     }
@@ -262,7 +263,7 @@ export class Universe {
   placeLabels() {
     const f = this.f, show = {};
     for (const l of this.labels) {
-      const L = l.L, fv = f[L.name]; let vis = fv > 0.12;
+      const L = l.L, fv = f[L.name]; let vis = fv > 0.12; if (vis && l.rng && (this.logd < l.rng[0] || this.logd > l.rng[1])) vis = false;
       if (vis && L.name === 'solar') { const key = l.text; if (this.regime !== 'precision' && key !== 'Sun' && !key.startsWith('Helio') && key !== 'Earth') vis = false; if (this.regime === 'after' && key === 'Earth') vis = false; if (this.regime === 'before' && key !== 'Sun') vis = false; }
       if (vis && L.name === 'earth' && l.el.classList.contains('sm') && this.logd > 5.3) vis = false;
       if (!vis) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
