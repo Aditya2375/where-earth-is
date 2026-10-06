@@ -263,15 +263,21 @@ export class Universe {
     if (fr.vGalDir && fr.vGalKey !== this._gk) { this._gk = fr.vGalKey; const d = fr.vGalDir; this.galArrow.geometry.setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(d[0] * 2.2, d[1] * 2.2, d[2] * 2.2)]); }
   }
   placeLabels() {
-    const f = this.f, show = {};
-    for (const l of this.labels) {
+    const f = this.f, show = {}, placed = [];
+    const order = this._lblOrder && this._lblOrder.n === this.labels.length ? this._lblOrder.a : (this._lblOrder = { n: this.labels.length, a: [...this.labels].sort((p, q) => (p.el.classList.contains('sm') ? 1 : 0) - (q.el.classList.contains('sm') ? 1 : 0)) }).a;
+    for (const l of order) {
       const L = l.L, fv = f[L.name]; let vis = fv > 0.12; if (vis && l.rng && (this.logd < l.rng[0] || this.logd > l.rng[1])) vis = false;
       if (vis && L.name === 'solar') { const key = l.text; if (this.regime !== 'precision' && key !== 'Sun' && !key.startsWith('Helio') && key !== 'Earth') vis = false; if (this.regime === 'after' && key === 'Earth') vis = false; if (this.regime === 'before' && key !== 'Sun') vis = false; }
       if (vis && L.name === 'earth' && l.el.classList.contains('sm') && this.logd > 5.3) vis = false;
       if (!vis) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
       this.camSetup(L); const p = l.getPos(); const v = new THREE.Vector3(p[0], p[1], p[2]).project(this.cam);
       if (v.z > 1 || v.z < -1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
-      const x = (v.x * 0.5 + 0.5) * this.W + 8, y = (-v.y * 0.5 + 0.5) * this.H;
+      let x = (v.x * 0.5 + 0.5) * this.W + 8; const y = (-v.y * 0.5 + 0.5) * this.H;
+      if (!l.w) { l.w = l.el.offsetWidth || 0; l.h = l.el.offsetHeight || 22; } const w = l.w || 120, bx = x, hh = (l.h || 22) / 2;
+      if (x + w > this.W - 6) x = Math.max(6, bx - w - 16);
+      const r0 = x, r1 = x + w, y0 = y - hh, y1 = y + hh;
+      if (placed.some(q => r0 < q[1] + 4 && r1 > q[0] - 4 && y0 < q[3] && y1 > q[2])) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
+      placed.push([r0, r1, y0, y1]);
       l.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`; l.el.style.opacity = Math.min(1, fv * 1.4); l.el.style.pointerEvents = l.el.classList.contains('sm') ? 'none' : 'auto'; l.on = true; l.el.style.left = 0;
       l.sx = x; l.sy = y;
     }
