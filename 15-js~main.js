@@ -219,24 +219,26 @@ function ledgerRow(e) {
   const mid = el('div'); mid.appendChild(m); mid.appendChild(c);
   const s = el('div', 'srcl'); s.appendChild(el('span', '', 'Census refs: ' + e.refs));
   (e.sources || []).forEach(x => { const l = el('a', '', x.label); l.href = x.url; l.target = '_blank'; l.rel = 'noopener noreferrer'; s.appendChild(l); });
-  r.appendChild(a); r.appendChild(mid); r.appendChild(s); return r;
+  r.classList.add('compact'); const tg = el('button', 'rtoggle', 'Details'); tg.type = 'button'; tg.addEventListener('click', () => { r.classList.toggle('open'); tg.textContent = r.classList.contains('open') ? 'Hide' : 'Details'; }); h.appendChild(tg); r.appendChild(a); r.appendChild(mid); r.appendChild(s); return r;
 }
 async function buildLedger() {
   LEDGER = await (await fetch('data/effects.json')).json();
   const L = $('ledgerList'), R = $('rotList'); let curG = null, cont = null;
   for (const e of LEDGER) {
     const target = e.group === 'B' ? R : L;
-    if (target.dataset.last !== e.group) { target.dataset.last = e.group; const g = el('div', 'group'); g.appendChild(el('h3', '', e.group + '. ' + e.groupName)); cont = g; target.appendChild(g); }
+    if (target.dataset.last !== e.group) { target.dataset.last = e.group; const g = el('div', 'group' + (target === L ? ' closed' : '')); g.dataset.g = e.group; const hb = el('button', 'ghead'); hb.type = 'button'; hb.appendChild(el('span', 'gname', e.group + '. ' + e.groupName)); hb.appendChild(el('span', 'gmix')); hb.appendChild(el('span', 'gct')); hb.appendChild(el('span', 'gplus', '+')); hb.addEventListener('click', () => g.classList.toggle('closed')); g.appendChild(hb); cont = g; target.appendChild(g); }
     cont.appendChild(ledgerRow(e));
   }
+  document.querySelectorAll('.group').forEach(g => { const rows = [...g.querySelectorAll('.row')]; g.querySelector('.gct').textContent = rows.length + ' entries'; const mix = g.querySelector('.gmix'); const cnt = {}; rows.forEach(r => { const e = LEDGER.find(x => x.id === r.dataset.id); cnt[e.status] = (cnt[e.status] || 0) + 1; }); Object.keys(cnt).forEach(k => { const i = el('i', 'st-' + k); i.style.flex = cnt[k]; i.title = STATUS_LABEL[k] + ': ' + cnt[k]; mix.appendChild(i); }); });
+  buildDescent();
   const key = $('statusKey'); Object.keys(STATUS_LABEL).forEach(k => { key.appendChild(el('span', 'badge st-' + k, STATUS_LABEL[k])); }); key.appendChild(el('span', 'badge st-computed-live', 'Computed here: a live number calculated on this page'));
   $('lcount').textContent = LEDGER.length + ' entries';
   const srcs = new Map(); LEDGER.forEach(e => (e.sources || []).forEach(s => srcs.set(s.url, s.label))); const sl = $('srcList'); [...srcs].forEach(([u, l]) => { const li = el('li'); const a = el('a', '', l); a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.appendChild(a); sl.appendChild(li); });
   [['NASA JPL Horizons system', 'https://ssd-api.jpl.nasa.gov/doc/horizons.html'], ['Natural Earth, 110m land', 'https://www.naturalearthdata.com/'], ['d3-celestial star catalogue (Hipparcos-based)', 'https://github.com/ofrohn/d3-celestial']].forEach(([l, u]) => { const li = el('li'); const a = el('a', '', l); a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.appendChild(a); sl.appendChild(li); });
-  $('lq').addEventListener('input', () => { const q = $('lq').value.trim().toLowerCase(); let n = 0; document.querySelectorAll('.row').forEach(r => { const e = LEDGER.find(x => x.id === r.dataset.id); const hit = !q || (e.name + ' ' + e.what + ' ' + e.syn + ' ' + e.scale).toLowerCase().includes(q); r.style.display = hit ? '' : 'none'; if (hit) n++; }); $('lcount').textContent = n + ' of ' + LEDGER.length; });
+  $('lq').addEventListener('input', () => { const q = $('lq').value.trim().toLowerCase(); let n = 0; document.querySelectorAll('.row').forEach(r => { const e = LEDGER.find(x => x.id === r.dataset.id); const hit = !q || (e.name + ' ' + e.what + ' ' + e.syn + ' ' + e.scale).toLowerCase().includes(q); r.style.display = hit ? '' : 'none'; if (hit) n++; }); $('lcount').textContent = n + ' of ' + LEDGER.length; document.querySelectorAll('.group').forEach(g => { if (q) g.classList.remove('closed'); }); });
   if (location.hash.startsWith('#effect-')) setTimeout(() => flash(location.hash.slice(8)), 600);
 }
-function flash(id) { const r = $('effect-' + id); if (!r) return; r.scrollIntoView({ behavior: 'smooth', block: 'center' }); r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 2400); }
+function flash(id) { const r = $('effect-' + id); if (!r) return; const gg = r.closest('.group'); if (gg) gg.classList.remove('closed'); r.classList.add('open'); const tb = r.querySelector('.rtoggle'); if (tb) tb.textContent = 'Hide'; r.scrollIntoView({ behavior: 'smooth', block: 'center' }); r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 2400); }
 function updateLedgerLive(fr) {
   const d = fr.d; if (!d) { document.querySelectorAll('.val[data-key]').forEach(v => { if (!v.dataset.k) { v.textContent = 'not computed in this zone'; v.dataset.k = 'x'; v.style.fontSize = '12px'; } }); return; }
   const lv = E.ledgerLive(fr.st, d), o = fr.orient; lv.massloss = 1.4; lv.surfspeed = 465.1; lv.nut = null; lv.prec = 50.29; lv.andromeda = 3.5e-13;
@@ -302,3 +304,24 @@ async function boot() {
   requestAnimationFrame(loop);
 }
 boot();
+
+// ---------- descent: the acceleration rows on one log scale (values taken from the census scale text)
+const DESC = [['e001', -2.227], ['e002', -4.479], ['e067', -9.638], ['e077', -10], ['e046', -15.924], ['e047', -16.013], ['e083', -18], ['e068', -19], ['e057', -19.398], ['e049', -20], ['e087', -24.31], ['e054', -26.82]];
+function fmtLen(m) { const u = [[1e3, 'km', 1e3], [1, 'm', 1], [1e-3, 'mm', 1e-3], [1e-6, 'micrometre', 1e-6], [1e-9, 'nanometre', 1e-9], [1e-12, 'picometre', 1e-12], [1e-15, 'femtometre', 1e-15]]; for (const [t, n, d] of u) if (m >= t) { const v = m / d; return (v >= 100 ? Math.round(v) : v.toPrecision(2)) + ' ' + n + (n.length > 2 && v >= 1.5 ? 's' : ''); } return m.toExponential(1) + ' m'; }
+function buildDescent() {
+  const host = $('descent'); if (!host || host.dataset.done) return; host.dataset.done = 1;
+  const top = DESC[0][1];
+  host.appendChild(el('p', 'dhead', 'The descent: from the Sun\'s pull to the faintest effect, each bar on one logarithmic scale. Bars are positioned by order of magnitude, so a bar half as long is not half the size: each tick is a factor of 10^6. Tap a bar to open its row.'));
+  DESC.forEach(([id, ex]) => {
+    const e = LEDGER.find(x => x.id === id); if (!e) return;
+    const w = Math.max(2, (ex + 30) / 28 * 100), ratio = Math.pow(10, ex - top);
+    const d = el('button', 'dstep'); d.type = 'button';
+    const hd = el('div', 'dname'); hd.appendChild(el('span', '', e.name.length > 54 ? e.name.slice(0, 52) + '\u2026' : e.name)); hd.appendChild(el('span', 'badge st-' + e.status, STATUS_LABEL[e.status]));
+    const bar = el('div', 'dbar'); const i = el('i'); i.style.width = w + '%'; bar.appendChild(i);
+    const ev = el('div', 'dval', '10^' + Math.round(ex * 10) / 10 + ' m/s\u00b2');
+    const cmp = el('div', 'dcmp', id === 'e001' ? 'Reference: the Sun\'s pull at Earth.' : 'If the Sun\'s pull were the Earth-Sun distance (149.6 million km), this would be ' + fmtLen(1.496e11 * ratio) + '.');
+    d.appendChild(hd); d.appendChild(bar); d.appendChild(ev); d.appendChild(cmp);
+    d.addEventListener('click', () => flash(id)); host.appendChild(d);
+  });
+  host.appendChild(el('p', 'dfoot', 'Values are the census scale text for each row (some are order-of-magnitude, marked ~ in the row). Rotation and non-acceleration effects are listed below.'));
+}
