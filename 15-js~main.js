@@ -13,7 +13,7 @@ const nf = (x, d = 0) => x.toLocaleString('en-US', { minimumFractionDigits: d, m
 const sci = x => { if (x === 0) return '0'; const e = Math.floor(Math.log10(Math.abs(x))), m = x / Math.pow(10, e); return m.toFixed(2) + 'e' + (e < 0 ? '-' : '+') + pad(Math.abs(e)); };
 const deg = (x, d = 3) => nf(x, d) + '\u00b0';
 const hms = raDeg => { const h = raDeg / 15, hh = Math.floor(h), m = (h - hh) * 60, mm = Math.floor(m), s = (m - mm) * 60; return `${pad(hh)}h ${pad(mm)}m ${s.toFixed(1).padStart(4, '0')}s`; };
-function fmtDist(km) { const ly = km / 9.4607304725808e12; if (km < 1e4) return nf(km, 0) + ' km'; if (km < 1e8) return nf(km / 1e3, 0) + ' thousand km'; if (km < 1e10) return nf(km / E.AU, 2) + ' AU'; if (km < 1e13) return nf(km / E.AU, 0) + ' AU'; if (ly < 1e5) return nf(ly, ly < 100 ? 1 : 0) + ' light-years'; if (km / KPC_KM < 1000) return nf(km / KPC_KM, 1) + ' kpc'; return nf(km / KPC_KM / 1000, 1) + ' Mpc'; }
+function fmtDist(km) { const ly = km / 9.4607304725808e12; if (km < 1e4) return nf(km, 0) + ' km'; if (km < 1e8) return nf(km / 1e3, 0) + ' thousand km'; if (km < 1e10) return nf(km / E.AU, 2) + ' AU'; if (km < 1e13) return nf(km / E.AU, 0) + ' AU'; if (ly < 1e5) return nf(ly, ly < 100 ? 1 : 0) + ' light-years'; if (km / KPC_KM < 1000) return nf(km / KPC_KM, 1) + ' kpc'; if (km / KPC_KM / 1000 < 1000) return nf(km / KPC_KM / 1000, 1) + ' Mpc'; return nf(km / KPC_KM / 1e6, 1) + ' Gpc (' + nf(ly / 1e9, 0) + ' billion light-years)'; }
 function fmtTime(ms, ty) {
   const aty = Math.abs(ty);
   if (aty > 1e5) { const g = aty >= 1e9 ? nf(aty / 1e9, 2) + ' Gyr' : aty >= 1e6 ? nf(aty / 1e6, 2) + ' Myr' : nf(aty / 1e3, 1) + ' kyr'; return ty < 0 ? g + ' ago' : 'in ' + g; }
@@ -61,7 +61,7 @@ function bodiesAt(ms) {
 let U;
 const Z = { zt: 4.1 };
 function gotoZ(z) { if (window.gsap) gsap.to(Z, { zt: z, duration: 2.6, ease: 'power3.inOut', overwrite: true }); else Z.zt = z; }
-function zoomBy(d) { if (window.gsap) gsap.killTweensOf(Z); Z.zt = Math.max(3.95, Math.min(22, Z.zt + d)); }
+function zoomBy(d) { if (window.gsap) gsap.killTweensOf(Z); Z.zt = Math.max(3.95, Math.min(26, Z.zt + d)); }
 U = new Universe($('gl'), { stars: H.stars, landMask: H.landMask, gotoZ, zoomBy, touched: () => { if (window.gsap) gsap.killTweensOf(Z); $('hint').style.opacity = 0; },
   onFocus: () => {}, onPick: (lat, lon) => { S.pick = { lat, lon }; } });
 
@@ -196,7 +196,7 @@ function loop(now) {
     const b = BANNER[rg]; const bn = $('regimeBanner'); bn.className = rg; $('rgName').textContent = b[0]; $('rgText').textContent = b[1]; bn.style.opacity = rg === 'precision' ? 0 : 1;
     $('tDate').textContent = fmtTime(ms, ty);
     const base = S.base, st = rg === 'precision' ? (S.live ? 'LIVE' : 'SCRUBBING') + (S.fetching ? ' - fetching exact state' : '') : rg === 'modeled' ? 'MODELED' : 'NO EARTH';
-    $('tState').textContent = st; $('scaleRead').textContent = 'View ' + fmtDist(U.dist);
+    $('tState').textContent = st; $('scaleRead').textContent = 'View ' + fmtDist(U.dist); $('imgCap').style.opacity = U.logd < 6.4 && U.photoReady ? 0.8 : 0;
     chipSync(); syncSlider();
   }
   requestAnimationFrame(loop);
