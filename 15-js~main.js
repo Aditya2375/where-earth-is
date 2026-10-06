@@ -114,7 +114,7 @@ const BANNER = {
 };
 function toThreeArr(a) { return a.map(p => E.toThree(p)); }
 function buildFrame(ms, ty) {
-  const rg = E.regime(ms), B = S.base; const fr = { regime: rg, bodies: {}, sunRadiusAU: rg === 'after' ? 1.2 : 0.00465 };
+  const rg = E.regime(ms), B = S.base; const fr = { ms, regime: rg, bodies: {}, sunRadiusAU: rg === 'after' ? 1.2 : 0.00465 };
   const ageY = Math.abs(ty);
   let d = null, orient;
   if (rg === 'precision') {
@@ -196,7 +196,7 @@ function loop(now) {
     const b = BANNER[rg]; const bn = $('regimeBanner'); bn.className = rg; $('rgName').textContent = b[0]; $('rgText').textContent = b[1]; bn.style.opacity = rg === 'precision' ? 0 : 1;
     $('tDate').textContent = fmtTime(ms, ty);
     const base = S.base, st = rg === 'precision' ? (S.live ? 'LIVE' : 'SCRUBBING') + (S.fetching ? ' - fetching exact state' : '') : rg === 'modeled' ? 'MODELED' : 'NO EARTH';
-    $('tState').textContent = st; $('scaleRead').textContent = 'View ' + fmtDist(U.dist); $('imgCap').style.opacity = U.logd < 6.4 && U.photoReady ? 0.8 : 0;
+    $('tState').textContent = st; $('scaleRead').textContent = 'View ' + fmtDist(U.dist); $('imgCap').style.opacity = U.logd < 6.4 && U.photoReady && (!U.focus || U.focus === 'earth' || U.focus === 'moon') ? 0.8 : 0;
     chipSync(); syncSlider();
   }
   requestAnimationFrame(loop);
