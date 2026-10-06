@@ -20,4 +20,7 @@ dl night-lo.png $T/earth_lights_2048.png
 dl spec.jpg $T/earth_specular_2048.jpg
 dl mercury.jpg https://images-assets.nasa.gov/image/PIA17386/PIA17386~orig.jpg
 dl jupiter.jpg https://images-assets.nasa.gov/image/PIA07782/PIA07782~orig.jpg
+# Real galaxies: 2MASS Redshift Survey (Huchra et al. 2012), VizieR J/ApJS/199/26. RA, Dec, cz, K mag.
+mkdir -p public/data
+curl -fsSL --retry 2 --max-time 100 "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/ApJS/199/26/table3&-out=ID,RAJ2000,DEJ2000,cz,Kcmag&-out.max=50000&-out.meta=." -o /tmp/2mrs.tsv && awk -F'\t' '!/^#/ && NF>=5 && $4+0>0 {printf "%s,%s,%d,%s\n",$2+0,$3+0,$4+0,$5+0}' /tmp/2mrs.tsv > public/data/2mrs.csv || echo "2mrs not fetched"
 ls -R public | head -60
