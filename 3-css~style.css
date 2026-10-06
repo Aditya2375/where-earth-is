@@ -154,3 +154,6 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
  .tbBtns button,.tbBtns select{padding:5px 8px;font-size:10px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+#imgCap{position:absolute;left:50%;transform:translateX(-50%);bottom:98px;width:min(560px,calc(100vw - 40px));text-align:center;font:400 10px/1.5 var(--mono);color:var(--dim);letter-spacing:.03em;pointer-events:none;opacity:0;transition:opacity .6s;z-index:4}
+@media(max-width:860px){#imgCap{bottom:218px;font-size:9px}}
