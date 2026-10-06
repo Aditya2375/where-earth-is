@@ -2,6 +2,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import * as E from './engine.js';
 import { buildCosmos, GPC_KM } from './cosmos.js';
 import { photoEarth, sunGlare, milkyWay, Post } from './photoreal.js';
+import { buildBodies, BODY_R } from './bodies.js';
 const TIER = (innerWidth < 860 || /Mobi|Android/i.test(navigator.userAgent)) ? 'low' : 'high';
 
 const KPC = 3.0856775814914e16, MPC = KPC * 1000, RE = E.R_EARTH;
@@ -41,7 +42,7 @@ export class Universe {
     this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth';
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
-    this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
+    this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
     try { this.post = new Post(this.r, TIER); } catch (e) { this.post = null; }
     this.resize(); addEventListener('resize', () => this.resize());
     this.bindInput();
@@ -181,7 +182,7 @@ export class Universe {
   get dist() { return Math.pow(10, this.logd); }
   focusOn(n) {
     this.focus = n; this.hooks.onFocus && this.hooks.onFocus(n);
-    const z = n === 'moon' ? 5.7 : n === 'earth' ? this.logd : 7.3 + (n === 'sun' ? 0.7 : 0.6);
+    const z = n === 'moon' ? 5.7 : n === 'earth' ? this.logd : BODY_R(n) ? Math.max(3.95, Math.log10(BODY_R(n) * 3.5)) : 7.3 + (n === 'sun' ? 0.7 : 0.6);
     this.hooks.gotoZ(n === 'earth' ? Math.min(Math.max(this.logd, 3.95), 9.5) : z);
   }
   resize() { const w = this.canvas.clientWidth, h = this.canvas.clientHeight; this.r.setSize(w, h, false); if (this.post) this.post.resize(); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); this.W = w; this.H = h; this.focalPx = (h / 2) / Math.tan((this.cam.fov * Math.PI / 180) / 2); }
@@ -208,7 +209,7 @@ export class Universe {
   }
   fades() {
     const lg = this.logd, f = {};
-    f.earth = (this.showEarth === false ? 0 : 1) * (1 - sstep(6.4, 7.5, lg)); f.solar = sstep(5.2, 6.4, lg) * (1 - sstep(12.0, 13.4, lg)); f.galaxy = sstep(12.6, 13.9, lg) * (1 - sstep(18.4, 19.6, lg)); f.lg = sstep(18.7, 19.8, lg) * (1 - sstep(22.4, 23.2, lg)); f.univ = sstep(22.5, 23.3, lg); f.sky = 1 - 0.8 * sstep(10, 14, lg) ;
+    f.earth = (this.showEarth === false || (this.focus && this.focus !== 'earth' && this.focus !== 'moon') ? 0 : 1) * (1 - sstep(6.4, 7.5, lg)); f.solar = sstep(3.4, 5.4, lg) * (1 - sstep(12.0, 13.4, lg)); f.galaxy = sstep(12.6, 13.9, lg) * (1 - sstep(18.4, 19.6, lg)); f.lg = sstep(18.7, 19.8, lg) * (1 - sstep(22.4, 23.2, lg)); f.univ = sstep(22.5, 23.3, lg); f.sky = 1 - 0.8 * sstep(10, 14, lg) ;
     f.sky *= 1 - sstep(17.5, 19.5, lg) * 0.6; f.sky *= 1 - sstep(21.5, 22.8, lg); return f;
   }
   setOpacity(L, f) { const px = this.r.getPixelRatio(); for (const m of L.mats) { const b = m.userData.base ?? 1; if (m.uniforms) { if (m.uniforms.uOp) m.uniforms.uOp.value = f * b; if (m.uniforms.uPx) m.uniforms.uPx.value = px; } else { m.opacity = f * b; } if (!m.uniforms) m.visible = f > 0.01; } }
@@ -246,6 +247,7 @@ export class Universe {
     const names = this.solarNames, arr = this.bodyPts.geometry.attributes.position.array, szAttr = this.bodyPts.geometry.attributes.size, alA = this.bodyPts.geometry.attributes.alpha;
     const show = fr.regime === 'precision';
     names.forEach((n, i) => { const p = fr.bodies[n] || [0, 0, 0]; this.simBodies[n] = p; arr[i * 3] = p[0]; arr[i * 3 + 1] = p[1]; arr[i * 3 + 2] = p[2]; alA.array[i] = (n === 'sun' || show) ? 1 : 0; });
+    if (this.bodies) this.bodies.update(fr, alA, names);
     this.bodyPts.geometry.attributes.position.needsUpdate = true; alA.needsUpdate = true;
     // sun scale for red giant
     const sunR = fr.sunRadiusAU, dl = this.dist / E.AU, pxPerUnit = this.focalPx / Math.max(dl, 1e-9);
