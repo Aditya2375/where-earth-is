@@ -20,6 +20,9 @@ dl night-lo.png $T/earth_lights_2048.png
 dl spec.jpg $T/earth_specular_2048.jpg
 dl mercury.jpg https://images-assets.nasa.gov/image/PIA17386/PIA17386~orig.jpg
 dl jupiter.jpg https://images-assets.nasa.gov/image/PIA07782/PIA07782~orig.jpg
+# USGS/PDS public-domain equirectangular browse mosaics. Never fetch the 170 MB/12 GB originals at build.
+dl venus.jpg https://astrogeology.usgs.gov/ckan/dataset/bf10c4f9-7587-4357-b0d9-81d5b6e6637c/resource/12345d86-e2a3-45eb-af88-c1e8bf3ac358/download/full.jpg
+dl mars.jpg https://astrogeology.usgs.gov/ckan/dataset/7131d503-cdc9-45a5-8f83-5126c0fd397e/resource/6afad901-1caa-48a7-8b62-3911da0004c2/download/mars_viking_mdim21_clrmosaic_global_1024.jpg
 # Real galaxies: 2MASS Redshift Survey (Huchra et al. 2012), VizieR J/ApJS/199/26. RA, Dec, cz, K mag.
 mkdir -p public/data
 curl -fsSL --retry 2 --max-time 100 "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/ApJS/199/26/table3&-out=ID,RAJ2000,DEJ2000,cz,Kcmag&-out.max=50000&-out.meta=." -o /tmp/2mrs.tsv && awk -F'\t' '!/^#/ && NF>=5 && $4+0>0 {printf "%s,%s,%d,%s\n",$2+0,$3+0,$4+0,$5+0}' /tmp/2mrs.tsv > public/data/2mrs.csv || echo "2mrs not fetched"
