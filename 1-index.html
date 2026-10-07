@@ -73,6 +73,12 @@
       <div class="tbDate" id="tDate">--</div>
       <div class="tbState" id="tState">--</div>
     </div>
+    <form id="dateJump" class="dateJump">
+      <label for="dateQuery">Jump to date / time</label>
+      <div class="dateFields"><input id="dateQuery" type="text" placeholder="7 Oct 2026 14:30:05" autocomplete="off" maxlength="160" aria-describedby="dateResult">
+      <select id="dateOrder" aria-label="Ambiguous numeric date order"><option value="ask">Date order: ask if ambiguous</option><option value="dmy">Day / month / year</option><option value="mdy">Month / day / year</option></select><button type="submit">Go</button></div>
+      <p id="dateResult" class="dateResult" role="status" aria-live="polite">Month names or ISO dates; seconds, AM/PM, UTC, IST and offsets accepted. No time: midnight. No zone: UTC.</p>
+    </form>
     <div class="track">
       <div class="seg" id="segBefore"></div><div class="seg" id="segModelPast"></div><div class="seg" id="segPrec"></div><div class="seg" id="segModelFut"></div><div class="seg" id="segAfter"></div>
       <input id="tSlider" type="range" min="0" max="1000" step="1" value="500" aria-label="Time">
