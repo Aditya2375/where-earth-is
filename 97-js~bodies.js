@@ -23,7 +23,7 @@ function sphere(n) {
 export const BODY_R = n => SPEC[n] && SPEC[n].R;
 export function buildBodies(U, L) {
   const ld = new THREE.TextureLoader(), out = { list: [] };
-  const cap = document.createElement('div'); cap.className = 'imgcap2'; cap.style.cssText = 'position:fixed;left:50%;bottom:132px;transform:translateX(-50%);max-width:min(640px,88vw);font:11px/1.45 ui-monospace,monospace;color:#9aa;text-align:center;opacity:0;transition:opacity .4s;pointer-events:none;z-index:3'; document.body.appendChild(cap);
+  const cap = document.createElement('div'); cap.className = 'imgcap2'; cap.style.cssText = 'position:fixed;left:50%;bottom:132px;transform:translateX(-50%);width:min(640px,calc(100vw - 32px));box-sizing:border-box;padding:6px 10px;background:rgba(0,0,0,.78);font:11px/1.45 ui-monospace,monospace;color:#9aa;text-align:center;opacity:0;transition:opacity .4s;pointer-events:none;z-index:3'; document.body.appendChild(cap);
   for (const name in SPEC) {
     const s = SPEC[name];
     ld.load(s.tex, tx => {
@@ -53,7 +53,7 @@ export function buildBodies(U, L) {
       b.mat.uniforms.uSun.value.set(-p[0], -p[1], -p[2]);
       const near = dist < rAU * 400; if (near && b.m.visible) { const i = names.indexOf(b.name); if (i >= 0) alA.array[i] = 0; if (U.focus === b.name && dist < rAU * 60) capTxt = s.cap; }
     }
-    cap.textContent = capTxt; cap.style.opacity = capTxt && scrollY < 200 ? 0.85 : 0;
+    cap.style.bottom = innerWidth < 600 ? '210px' : '132px'; cap.textContent = capTxt; cap.style.opacity = capTxt && scrollY < 200 ? 0.85 : 0;
   };
   return out;
 }
