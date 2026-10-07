@@ -3,6 +3,10 @@ import * as THREE from '../vendor/three.module.min.js';
 // Each map is a real spacecraft product; spin phase uses the IAU rotation model where the map's longitude frame is documented.
 const AUKM = 149597870.7, D2R = Math.PI / 180, EPS0 = (84381.406 / 3600) * D2R;
 const SPEC = {
+  venus: { tex: 'tex/venus.jpg', R: 6051.8, a0: 272.76, d0: 67.16, W0: 160.20, Wd: -1.4813688, spin: true, lonOffset: .5,
+    cap: 'Venus: USGS/PDS Magellan C3-MDIR radar surface mapped through clouds, not an optical view. Black areas are missing data, not dark terrain. 1024 px browse mosaic; IAU rotation model.' },
+  mars: { tex: 'tex/mars.jpg', R: 3396.19, a0: 317.68143, d0: 52.88650, W0: 176.630, Wd: 350.89198226, spin: true, lonOffset: .5,
+    cap: 'Mars: USGS/NASA Ames Viking MDIM2.1 colorized mosaic, not live imagery or exact eye color. 1024 px browse product. Equatorial-radius sphere and IAU 2009 mean spin model omit small orientation terms.' },
   mercury: { tex: 'tex/mercury.jpg', R: 2439.7, a0: 281.0103, d0: 61.4155, W0: 329.5988, Wd: 6.1385108, spin: true,
     cap: 'Mercury: NASA/JHU-APL/Carnegie, MESSENGER MDIS global map, enhanced color (not what the eye would see). Tilt and spin phase follow the IAU model.' },
   jupiter: { tex: 'tex/jupiter.jpg', R: 69911, a0: 268.057, d0: 64.495, W0: 0, Wd: 0, spin: false,
@@ -12,7 +16,7 @@ const VS = 'varying vec2 vUv; varying vec3 vN; void main(){ vUv=uv; vN=normalize
 const FS = 'uniform sampler2D tMap; uniform vec3 uSun; uniform float uOp; varying vec2 vUv; varying vec3 vN; void main(){ vec3 c=texture2D(tMap,vUv).rgb; c=pow(c,vec3(2.2)); float d=dot(normalize(vN),normalize(uSun)); float l=smoothstep(-.06,.22,d)*(.25+.75*max(d,0.)); l=max(l,.012); gl_FragColor=vec4(c*l*1.35,uOp); }';
 function sphere(n) {
   const W = 128, H = 64, pos = [], uv = [], nor = [], idx = [];
-  for (let j = 0; j <= H; j++) { const lat = (j / H - .5) * Math.PI; for (let i = 0; i <= W; i++) { const lon = i / W * 2 * Math.PI; const x = Math.cos(lat) * Math.cos(lon), y = Math.cos(lat) * Math.sin(lon), z = Math.sin(lat); pos.push(x, y, z); nor.push(x, y, z); uv.push(i / W, j / H); } }
+  for (let j = 0; j <= H; j++) { const lat = (j / H - .5) * Math.PI; for (let i = 0; i <= W; i++) { const lon = i / W * 2 * Math.PI; const x = Math.cos(lat) * Math.cos(lon), y = Math.cos(lat) * Math.sin(lon), z = Math.sin(lat); pos.push(x, y, z); nor.push(x, y, z); uv.push(i / W + (n || 0), j / H); } }
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const a = j * (W + 1) + i, b = a + W + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); return g;
 }
@@ -26,7 +30,7 @@ export function buildBodies(U, L) {
       tx.anisotropy = Math.min(8, U.r.capabilities.getMaxAnisotropy()); tx.wrapS = THREE.RepeatWrapping; tx.minFilter = THREE.LinearMipmapLinearFilter; tx.generateMipmaps = true;
       const mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, transparent: true, side: THREE.DoubleSide, uniforms: { tMap: { value: tx }, uSun: { value: new THREE.Vector3(1, 0, 0) }, uOp: { value: 1 } } });
       mat.userData.base = 1; L.mats.push(mat);
-      const m = new THREE.Mesh(sphere(), mat); m.matrixAutoUpdate = false; m.frustumCulled = false; m.renderOrder = 1; L.scene.add(m);
+      const m = new THREE.Mesh(sphere(s.lonOffset), mat); m.matrixAutoUpdate = false; m.frustumCulled = false; m.renderOrder = 1; L.scene.add(m);
       out.list.push({ name, s, m, mat });
     }, undefined, () => { /* texture missing: body stays a dot */ });
   }
