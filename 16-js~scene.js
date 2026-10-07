@@ -295,7 +295,7 @@ export class Universe {
       if (vis && L.name === 'solar') { const key = l.text; if (this.regime !== 'precision' && key !== 'Sun' && !key.startsWith('Helio') && key !== 'Earth') vis = false; if (this.regime === 'after' && key === 'Earth') vis = false; if (this.regime === 'before' && key !== 'Sun') vis = false; }
       if (vis && L.name === 'earth' && l.el.classList.contains('sm') && this.logd > 5.3) vis = false;
       if (!vis) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
-      this.camSetup(L); const p = l.getPos(); const v = new THREE.Vector3(p[0], p[1], p[2]).project(this.cam);
+      if (L.name === 'sky') { const cp = Math.cos(this.pitch), dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)); this.cam.position.set(0, 0, 0); this.cam.up.set(0, 1, 0); this.cam.lookAt(dir.clone().multiplyScalar(-1)); this.cam.near = 1; this.cam.far = 2000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true); } else this.camSetup(L); const p = l.getPos(); const v = new THREE.Vector3(p[0], p[1], p[2]).project(this.cam);
       if (v.z > 1 || v.z < -1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
       let x = (v.x * 0.5 + 0.5) * this.W + 8; const y = (-v.y * 0.5 + 0.5) * this.H;
       if (!l.w) { l.w = l.el.offsetWidth || 0; l.h = l.el.offsetHeight || 22; } const w = l.w || 120, bx = x, hh = (l.h || 22) / 2;
