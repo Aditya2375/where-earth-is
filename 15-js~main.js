@@ -44,7 +44,7 @@ async function fetchState(ms) {
     if (!a.ok) throw new Error('state ' + a.status);
     const ja = await a.json(), jb = b.ok ? await b.json() : { bodies: {} };
     const bodies = { ...ja.bodies, ...jb.bodies }; if (!bodies.earth) throw new Error('no earth');
-    adopt({ bodies }, new Date(ja.utc).getTime(), 'JPL Horizons, live');
+    adopt({ bodies }, new Date(ja.utc).getTime(), 'JPL Horizons, live'); S.fetchFail = false;
   } catch (e) {
     if (!S.base) { const snap = await H.snapshot; adopt({ bodies: snap.bodies }, new Date(snap.utc).getTime(), 'Baked snapshot (offline fallback)'); }
     else S.fetchFail = true;
@@ -104,6 +104,91 @@ function advanceTime(dt) {
     else { S.simMs += S.rate * dt * 1000; const y = (S.simMs - T0) / YEAR; if (y > FUT_MAX_Y) S.simMs = T0 + FUT_MAX_Y * YEAR; if (y < BIGBANG_Y) S.simMs = T0 + BIGBANG_Y * YEAR; }
   }
 }
+
+// Strict Gregorian date parser: never delegate ambiguous strings to Date.parse.
+function parseDateJump(raw, order = 'ask') {
+  const fail = message => { throw new Error(message); };
+  let s = raw.trim().toLowerCase().replace(/\u00a0/g, ' ');
+  if (!s || s.length > 160) fail('Enter a date, for example 7 Oct 2026 14:30:05.');
+  let offset = 0, zone = 'UTC assumed', hour = 0, minute = 0, second = 0, hadTime = false;
+  // Explicit UTC/GMT/IST or ISO Z/offset, at the end only.
+  const z = s.match(/\s*(utc|gmt|ist|z|[+-]\d{2}:?\d{2})$/);
+  if (z && (!/^[+-]/.test(z[1]) || /\d:\d/.test(s.slice(0, z.index)))) {
+    const token = z[1]; s = s.slice(0, z.index).trim();
+    if (token === 'ist') { offset = 330; zone = 'IST (UTC+05:30)'; }
+    else if (/^[+-]/.test(token)) {
+      const digits = token.slice(1).replace(':', ''), h = +digits.slice(0, 2), m = +digits.slice(2);
+      if (h > 14 || m > 59 || (h === 14 && m)) fail('Timezone offset must be between -14:00 and +14:00.');
+      offset = (h * 60 + m) * (token[0] === '-' ? -1 : 1); zone = 'UTC' + token;
+    } else zone = 'UTC';
+  }
+  const t = s.match(/(?:\s+|t)(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)?$/);
+  if (t && (t[2] !== undefined || t[4])) {
+    hour = +t[1]; minute = +(t[2] || 0); second = +(t[3] || 0); hadTime = true; s = s.slice(0, t.index).trim();
+    if (minute > 59 || second > 59) fail('Minutes and seconds must be 00-59; leap seconds are not supported.');
+    if (t[4]) { if (hour < 1 || hour > 12) fail('AM/PM hours must be 1-12.'); hour = hour % 12 + (t[4] === 'pm' ? 12 : 0); }
+    else if (hour > 23) fail('Hours must be 00-23.');
+  }
+  // A timezone is meaningful only with a time; dates still use midnight in that zone.
+  let era = null;
+  s = s.replace(/\b(bce|bc|ce|ad)\b/g, match => { if (era) fail('Use one era label.'); era = match; return ''; });
+  s = s.replace(/\b(\d+)(st|nd|rd|th)\b/g, '$1').replace(/\b(of|at)\b/g, ' ').trim();
+  const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const tokens = s.split(/[\s,./-]+/).filter(Boolean);
+  if (tokens.length !== 3) fail('Use a full day, month and year. Try 7 Oct 2026 or 2026-10-07.');
+  let year, month, day;
+  const mi = tokens.findIndex(v => months.some(m => v === m || v === m.slice(0,3) || (v === 'sept' && m === 'september')));
+  if (mi >= 0) {
+    month = months.findIndex(m => tokens[mi] === m || tokens[mi] === m.slice(0,3) || (tokens[mi] === 'sept' && m === 'september')) + 1;
+    const nums = tokens.map((v,i) => ({ v, i })).filter(n => n.i !== mi);
+    if (nums.some(n => !/^\d+$/.test(n.v))) fail('Unknown date text. Use a month name and numeric day/year.');
+    const yi = era ? nums.findIndex(n => n.i === (mi === 2 ? 1 : 2)) : nums.findIndex(n => n.v.length >= 3);
+    if (yi < 0) fail('Write the year with four digits, such as 0099 or 2026.');
+    year = +nums[yi].v; day = +nums[1-yi].v;
+  } else {
+    if (tokens.some(v => !/^\d+$/.test(v))) fail('Month name not recognized. Use Jan-Dec or full English month names.');
+    const ys = tokens.map((v,i) => v.length >= 3 ? i : -1).filter(i => i >= 0);
+    if (ys.length !== 1) fail('Use one explicit year with four digits. Two-digit years are ambiguous.');
+    const yi = ys[0]; year = +tokens[yi];
+    if (yi === 0) { month = +tokens[1]; day = +tokens[2]; }
+    else if (yi === 2) {
+      const a = +tokens[0], b = +tokens[1];
+      if (a > 12 && b <= 12) { day = a; month = b; }
+      else if (b > 12 && a <= 12) { month = a; day = b; }
+      else if (a === b) { day = a; month = b; }
+      else if (order === 'dmy') { day = a; month = b; }
+      else if (order === 'mdy') { month = a; day = b; }
+      else fail('Ambiguous numeric date. Choose day/month/year or month/day/year, or spell the month.');
+    } else fail('For numeric dates, put the year first or last, or spell the month.');
+  }
+  if (era && !year) fail('Era years start at 1.');
+  if (era === 'bce' || era === 'bc') year = 1 - year;
+  if (year < -4712 || year > 9999) fail('Date search supports 4713 BCE through 9999 CE. The timeline covers wider modeled eras.');
+  const d = new Date(0); d.setUTCFullYear(year, month - 1, day); d.setUTCHours(hour, minute, second, 0);
+  if (month < 1 || month > 12 || day < 1 || d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) fail('That calendar date does not exist. Check the day and leap year.');
+  return { ms: d.getTime() - offset * 60000, note: (hadTime ? '' : '00:00:00 assumed; ') + zone + '. Proleptic Gregorian calendar.' };
+}
+
+$('dateJump').addEventListener('submit', async event => {
+  event.preventDefault();
+  const out = $('dateResult');
+  let result;
+  try { result = parseDateJump($('dateQuery').value, $('dateOrder').value); }
+  catch (error) { out.textContent = error.message; out.className = 'dateResult error'; $('dateQuery').setAttribute('aria-invalid', 'true'); return; }
+  $('dateQuery').removeAttribute('aria-invalid'); out.className = 'dateResult';
+  S.simMs = result.ms; S.tyFar = null; S.live = false; S.playing = false;
+  S.fetchFail = false;
+  $('tPlay').textContent = 'Play'; $('tPlay').classList.remove('on'); syncSlider();
+  const prefix = fmtTime(result.ms, (result.ms - T0) / YEAR) + '. ' + result.note;
+  if (E.regime(result.ms) !== 'precision') { out.textContent = prefix + ' Outside ephemeris coverage: modeled only, no exact position.'; return; }
+  out.textContent = prefix + ' Fetching JPL state...';
+  // A prior request must finish before requesting this instant.
+  while (S.fetching) await new Promise(resolve => setTimeout(resolve, 100));
+  if (S.simMs !== result.ms || S.playing) return;
+  await fetchState(result.ms);
+  if (S.simMs !== result.ms || S.playing) return;
+  out.textContent = prefix + (S.fetchFail || !S.base || S.base.src !== 'JPL Horizons, live' ? ' JPL unavailable: interpolated/fallback position, not verified at this instant.' : ' JPL state loaded; paused at this instant.');
+});
 
 // ---------- frame build
 const BANNER = {
@@ -324,4 +409,4 @@ function buildDescent() {
     d.addEventListener('click', () => flash(id)); host.appendChild(d);
   });
   host.appendChild(el('p', 'dfoot', 'Values are the census scale text for each row (some are order-of-magnitude, marked ~ in the row). Rotation and non-acceleration effects are listed below.'));
-}
+      }
