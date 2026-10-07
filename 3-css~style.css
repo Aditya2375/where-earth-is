@@ -180,3 +180,18 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
 .rtoggle{margin-left:auto;background:none;border:1px solid var(--line);color:var(--dim);font:500 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;cursor:pointer}
 .rtoggle:hover{color:var(--fg);border-color:var(--fg)}
 @media(max-width:860px){.dstep{grid-template-columns:1fr;gap:8px}.ghead{grid-template-columns:1fr 70px 20px}.ghead .gct{display:none}}
+
+.dateJump{margin:10px 0;font:400 10px/1.4 var(--mono)}
+.dateJump label{display:block;color:var(--dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em}
+.dateFields{display:flex;gap:6px;align-items:center}
+.dateFields input{flex:1;min-width:0;padding:8px;color:var(--fg);background:#0b0c11;border:1px solid var(--line);font:400 12px var(--mono)}
+.dateFields select{max-width:220px;background:#0b0c11;color:var(--fg);padding:8px;border:1px solid var(--line);font:400 10px var(--mono)}
+.dateFields button{padding:8px 14px}
+.dateFields :focus-visible{outline:1px solid var(--acc);outline-offset:2px}
+.dateResult{color:var(--dim);margin-top:5px;min-height:14px}.dateResult.error{color:#ff9a7d}
+.panel{bottom:278px}#imgCap{bottom:242px}.imgcap2{bottom:242px!important}
+@media(max-width:860px){.panel{bottom:270px}.dateFields{flex-wrap:wrap}.dateFields input{flex-basis:70%;font-size:16px}.dateFields select{flex:1;max-width:none}.dateFields button{min-height:36px}.dateResult{font-size:9px}.imgcap2{bottom:326px!important}#imgCap{bottom:326px}}
+#dateQuery{width:auto;margin:0;border:1px solid var(--line);padding:8px;background:#0b0c11;font:400 12px var(--mono);resize:none}
+#dateJump button{background:#15161c;border:1px solid var(--line);color:var(--fg);font:400 11px var(--mono);cursor:pointer}
+#dateJump button:hover{border-color:var(--acc);color:var(--acc)}
+@media(max-width:860px){#dateQuery{flex-basis:100%;font-size:16px}.dateFields button{min-width:50px}}
