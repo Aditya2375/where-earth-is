@@ -51,7 +51,7 @@ export function buildBodies(U, L) {
       const M = new THREE.Matrix4().set(R[0][0] * rAU, R[0][1] * rAU, R[0][2] * rAU, p[0], R[1][0] * rAU, R[1][1] * rAU, R[1][2] * rAU, p[1], R[2][0] * rAU, R[2][1] * rAU, R[2][2] * rAU, p[2], 0, 0, 0, 1);
       b.m.matrix.copy(M); b.m.matrixWorldNeedsUpdate = true; b.m.visible = fr.regime === 'precision' || fr.regime === 'modeled';
       b.mat.uniforms.uSun.value.set(-p[0], -p[1], -p[2]);
-      const near = dist < rAU * 400; if (near && b.m.visible) { const i = names.indexOf(b.name); if (i >= 0) alA.array[i] = 0; if (U.focus === b.name && dist < rAU * 60) capTxt = s.cap; }
+      const near = dist < rAU * 400; b.mat.userData.closeBody = near; if (near && b.m.visible) { const i = names.indexOf(b.name); if (i >= 0) alA.array[i] = 0; if (U.focus === b.name && dist < rAU * 60) capTxt = s.cap; }
     }
     cap.style.bottom = innerWidth < 600 ? '210px' : '132px'; cap.textContent = capTxt; cap.style.opacity = capTxt && scrollY < 200 ? 0.85 : 0;
   };
