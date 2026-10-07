@@ -23,4 +23,6 @@ dl jupiter.jpg https://images-assets.nasa.gov/image/PIA07782/PIA07782~orig.jpg
 # Real galaxies: 2MASS Redshift Survey (Huchra et al. 2012), VizieR J/ApJS/199/26. RA, Dec, cz, K mag.
 mkdir -p public/data
 curl -fsSL --retry 2 --max-time 100 "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=J/ApJS/199/26/table3&-out=ID,RAJ2000,DEJ2000,cz,Kcmag&-out.max=50000&-out.meta=." -o /tmp/2mrs.tsv && awk -F'\t' '!/^#/ && NF>=5 && $4+0>0 {printf "%s,%s,%d,%s\n",$2+0,$3+0,$4+0,$5+0}' /tmp/2mrs.tsv > public/data/2mrs.csv || echo "2mrs not fetched"
+# Real stars: Hipparcos catalogue (ESA 1997), VizieR I/239/hip_main, V < 9.5. RA, Dec, V mag, B-V.
+curl -fsSL --retry 2 --max-time 100 "https://vizier.cds.unistra.fr/viz-bin/asu-tsv?-source=I/239/hip_main&-out=RAICRS,DEICRS,Vmag,B-V&-out.max=200000&-out.meta=.&Vmag=%3C9.5" -o /tmp/hip.tsv && awk -F'\t' '!/^#/ && NF>=4 && $1 ~ /[0-9]/ {printf "%.3f,%.3f,%.2f,%s\n",$1+0,$2+0,$3+0,($4+0==0&&$4!~/0/)?"":$4+0}' /tmp/hip.tsv > public/data/hip.csv || echo "hip not fetched"
 ls -R public | head -60
