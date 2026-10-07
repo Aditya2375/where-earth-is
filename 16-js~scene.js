@@ -258,7 +258,7 @@ export class Universe {
     f.earth = (this.showEarth === false || (this.focus && this.focus !== 'earth' && this.focus !== 'moon') ? 0 : 1) * (1 - sstep(6.4, 7.5, lg)); f.solar = sstep(3.4, 5.4, lg) * (1 - sstep(12.0, 13.4, lg)); f.galaxy = sstep(12.6, 13.9, lg) * (1 - sstep(18.4, 19.6, lg)); f.lg = sstep(18.7, 19.8, lg) * (1 - sstep(22.4, 23.2, lg)); f.univ = sstep(22.5, 23.3, lg); f.sky = 1 - 0.8 * sstep(10, 14, lg) ;
     f.sky *= 1 - sstep(17.5, 19.5, lg) * 0.6; f.sky *= 1 - sstep(21.5, 22.8, lg); return f;
   }
-  setOpacity(L, f) { const px = this.r.getPixelRatio(); for (const m of L.mats) { const b = m.userData.base ?? 1; if (m.uniforms) { if (m.uniforms.uOp) m.uniforms.uOp.value = f * b; if (m.uniforms.uPx) m.uniforms.uPx.value = px; } else { m.opacity = f * b; } if (!m.uniforms) m.visible = f > 0.01; } }
+  setOpacity(L, f) { const px = this.r.getPixelRatio(); for (const m of L.mats) { const b = m.userData.base ?? 1; if (m.uniforms) { if (m.uniforms.uOp) m.uniforms.uOp.value = m.userData.closeBody && f > 0.01 ? b : f * b; if (m.uniforms.uPx) m.uniforms.uPx.value = px; } else { m.opacity = f * b; } if (!m.uniforms) m.visible = f > 0.01; } }
   setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; if (this.stars2) this.stars2.material.uniforms.uPx.value = px; if (this.dso) this.dso.material.uniforms.uPx.value = px; if (this.exo) this.exo.material.uniforms.uPx.value = px; if (this.qso) this.qso.material.uniforms.uPx.value = px; }
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
@@ -312,7 +312,7 @@ export class Universe {
     const f = this.f, show = {}, placed = [];
     const order = this._lblOrder && this._lblOrder.n === this.labels.length ? this._lblOrder.a : (this._lblOrder = { n: this.labels.length, a: [...this.labels].sort((p, q) => (p.el.classList.contains('sm') ? 1 : 0) - (q.el.classList.contains('sm') ? 1 : 0)) }).a;
     for (const l of order) {
-      const L = l.L, fv = f[L.name]; let vis = fv > 0.12; if (vis && l.rng && (this.logd < l.rng[0] || this.logd > l.rng[1])) vis = false;
+      const L = l.L, fv = f[L.name]; let vis = fv > 0.12; if (this.focus && BODY_R(this.focus) && this.logd < 6.4 && (L.name === "sky" || (L.name === "solar" && l.text.toLowerCase() === this.focus))) vis = false; if (vis && l.rng && (this.logd < l.rng[0] || this.logd > l.rng[1])) vis = false;
       if (vis && L.name === 'solar') { const key = l.text; if (this.regime !== 'precision' && key !== 'Sun' && !key.startsWith('Helio') && key !== 'Earth') vis = false; if (this.regime === 'after' && key === 'Earth') vis = false; if (this.regime === 'before' && key !== 'Sun') vis = false; }
       if (vis && L.name === 'earth' && l.el.classList.contains('sm') && this.logd > 5.3) vis = false;
       if (!vis) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
