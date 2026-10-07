@@ -68,6 +68,20 @@ export class Universe {
         col.push(r, g, bl);
       }
       this.stars = points(pos, size, col, al); L.scene.add(this.stars); this.reg(L, this.stars, 1);
+      // Hipparcos (ESA 1997): every catalogued star fainter than the bright set above, to V 9.5. Real positions, magnitudes and B-V colours.
+      fetch('data/hip.csv').then(r => r.ok ? r.text() : Promise.reject()).then(txt => {
+        const p2 = [], s2 = [], c2 = [], a2 = [];
+        for (const line of txt.split('\n')) {
+          const f = line.split(','); if (f.length < 4) continue;
+          const ra = +f[0], dec = +f[1], mag = +f[2], bv = +f[3]; if (!(mag >= 6.0)) continue;
+          const t = E.toThree(E.eqToEcl(E.fromSph(ra, dec, 1)));
+          p2.push(t[0] * 500, t[1] * 500, t[2] * 500);
+          s2.push(0.9 + (9.6 - mag) * 0.2); a2.push(Math.max(0.12, 0.5 - (mag - 6) * 0.1));
+          const k = Math.max(-0.2, Math.min(1.8, isNaN(bv) ? 0.6 : bv)); const r = k < 0.6 ? 0.78 + 0.22 * (k + 0.2) / 0.8 : 1, bl = k < 0.6 ? 1 : Math.max(0.55, 1 - (k - 0.6) * 0.45), g = k < 0.6 ? 0.86 + 0.14 * (k + 0.2) / 0.8 : Math.max(0.65, 1 - (k - 0.6) * 0.25);
+          c2.push(r, g, bl);
+        }
+        this.stars2 = points(p2, s2, c2, a2); L.scene.add(this.stars2); this.reg(L, this.stars2, 1); this.hipCount = p2.length / 3 + arr.length;
+      }).catch(() => {});
     });
   }
   // ---- earth + moon (unit: Earth radii)
@@ -213,14 +227,14 @@ export class Universe {
     f.sky *= 1 - sstep(17.5, 19.5, lg) * 0.6; f.sky *= 1 - sstep(21.5, 22.8, lg); return f;
   }
   setOpacity(L, f) { const px = this.r.getPixelRatio(); for (const m of L.mats) { const b = m.userData.base ?? 1; if (m.uniforms) { if (m.uniforms.uOp) m.uniforms.uOp.value = f * b; if (m.uniforms.uPx) m.uniforms.uPx.value = px; } else { m.opacity = f * b; } if (!m.uniforms) m.visible = f > 0.01; } }
-  setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; }
+  setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; if (this.stars2) this.stars2.material.uniforms.uPx.value = px; }
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
     this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
     { const s = this.layers.sky; const cp = Math.cos(this.pitch), dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)); this.cam.position.set(0, 0, 0); this.cam.up.set(0, 1, 0); this.cam.lookAt(dir.clone().multiplyScalar(-1)); this.cam.near = 1; this.cam.far = 2000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
-      if (this.stars) { this.stars.material.uniforms.uPx.value = this.r.getPixelRatio(); } this.r.render(s.scene, this.cam); }
+      if (this.stars) { this.stars.material.uniforms.uPx.value = this.r.getPixelRatio(); } if (this.stars2) { this.stars2.material.uniforms.uPx.value = this.r.getPixelRatio(); } this.r.render(s.scene, this.cam); }
     this.applyFrame(frame);
     if (frame && !this.aimed && !this.noAim) { this.aimed = true; const sd = this.sunDir.clone().normalize(), up = new THREE.Vector3(0, 1, 0), rt = new THREE.Vector3().crossVectors(up, sd).normalize(); const d = sd.multiplyScalar(Math.cos(0.62)).addScaledVector(rt, Math.sin(0.62)).addScaledVector(up, 0.12).normalize(); this.yaw = Math.atan2(d.x, d.z); this.pitch = Math.asin(d.y); }
     for (const n of ['univ', 'lg', 'galaxy', 'solar', 'earth']) {
