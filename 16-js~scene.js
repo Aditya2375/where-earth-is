@@ -93,6 +93,17 @@ export class Universe {
         }
         this.dso = points(p3, s3, c3, a3); L.scene.add(this.dso); this.reg(L, this.dso, 1);
       }).catch(() => {});
+      // NASA Exoplanet Archive (composite parameters): every confirmed planetary system's host star, with its planet count. Sky positions only.
+      fetch('data/exo.csv').then(r => r.ok ? r.text() : Promise.reject()).then(txt => {
+        const p4 = [], s4 = [], c4 = [], a4 = [];
+        for (const line of txt.split('\n')) {
+          const f = line.split(','); if (f.length < 5) continue; const ra = +f[1], dec = +f[2], v = f[3] === '' ? 14 : +f[3], n = +f[4];
+          const t = E.toThree(E.eqToEcl(E.fromSph(ra, dec, 1)));
+          p4.push(t[0] * 500, t[1] * 500, t[2] * 500); s4.push(2.4 + Math.min(n, 5) * 0.5); c4.push(.35, 1, .9); a4.push(.75);
+          if (v < 7.2) { const x = t[0] * 500, y = t[1] * 500, z = t[2] * 500; this.label(L, f[0] + ' (' + n + ' planet' + (n > 1 ? 's' : '') + ')', () => [x, y, z], 'sm'); }
+        }
+        this.exo = points(p4, s4, c4, a4); L.scene.add(this.exo); this.reg(L, this.exo, 1); this.exoCount = p4.length / 3;
+      }).catch(() => {});
     });
   }
   // ---- earth + moon (unit: Earth radii)
@@ -238,14 +249,14 @@ export class Universe {
     f.sky *= 1 - sstep(17.5, 19.5, lg) * 0.6; f.sky *= 1 - sstep(21.5, 22.8, lg); return f;
   }
   setOpacity(L, f) { const px = this.r.getPixelRatio(); for (const m of L.mats) { const b = m.userData.base ?? 1; if (m.uniforms) { if (m.uniforms.uOp) m.uniforms.uOp.value = f * b; if (m.uniforms.uPx) m.uniforms.uPx.value = px; } else { m.opacity = f * b; } if (!m.uniforms) m.visible = f > 0.01; } }
-  setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; if (this.stars2) this.stars2.material.uniforms.uPx.value = px; if (this.dso) this.dso.material.uniforms.uPx.value = px; }
+  setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; if (this.stars2) this.stars2.material.uniforms.uPx.value = px; if (this.dso) this.dso.material.uniforms.uPx.value = px; if (this.exo) this.exo.material.uniforms.uPx.value = px; }
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
     this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
     { const s = this.layers.sky; const cp = Math.cos(this.pitch), dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)); this.cam.position.set(0, 0, 0); this.cam.up.set(0, 1, 0); this.cam.lookAt(dir.clone().multiplyScalar(-1)); this.cam.near = 1; this.cam.far = 2000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
-      if (this.stars) { this.stars.material.uniforms.uPx.value = this.r.getPixelRatio(); } if (this.stars2) { this.stars2.material.uniforms.uPx.value = this.r.getPixelRatio(); } if (this.dso) { this.dso.material.uniforms.uPx.value = this.r.getPixelRatio(); } this.r.render(s.scene, this.cam); }
+      if (this.stars) { this.stars.material.uniforms.uPx.value = this.r.getPixelRatio(); } if (this.stars2) { this.stars2.material.uniforms.uPx.value = this.r.getPixelRatio(); } if (this.dso) { this.dso.material.uniforms.uPx.value = this.r.getPixelRatio(); } if (this.exo) { this.exo.material.uniforms.uPx.value = this.r.getPixelRatio(); } this.r.render(s.scene, this.cam); }
     this.applyFrame(frame);
     if (frame && !this.aimed && !this.noAim) { this.aimed = true; const sd = this.sunDir.clone().normalize(), up = new THREE.Vector3(0, 1, 0), rt = new THREE.Vector3().crossVectors(up, sd).normalize(); const d = sd.multiplyScalar(Math.cos(0.62)).addScaledVector(rt, Math.sin(0.62)).addScaledVector(up, 0.12).normalize(); this.yaw = Math.atan2(d.x, d.z); this.pitch = Math.asin(d.y); }
     for (const n of ['univ', 'lg', 'galaxy', 'solar', 'earth']) {
