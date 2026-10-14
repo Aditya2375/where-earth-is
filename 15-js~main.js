@@ -65,6 +65,9 @@ function zoomBy(d) { if (window.gsap) gsap.killTweensOf(Z); Z.zt = Math.max(3.95
 U = new Universe($('gl'), { stars: H.stars, landMask: H.landMask, gotoZ, zoomBy, touched: () => { if (window.gsap) gsap.killTweensOf(Z); $('hint').style.opacity = 0; },
   onFocus: () => {}, onPick: (lat, lon) => { S.pick = { lat, lon }; } });
 
+// camera mode: follow keeps the view locked on the focused body, free holds the view in space
+function camMode(on) { U.setFollow(on); $('camFollow').classList.toggle('on', on); $('camFree').classList.toggle('on', !on); $('camFollow').setAttribute('aria-pressed', on); $('camFree').setAttribute('aria-pressed', !on); }
+$('camFollow').addEventListener('click', () => camMode(true)); $('camFree').addEventListener('click', () => camMode(false));
 // scale chips
 const MOB = innerWidth < 860, ZE = MOB ? 4.8 : 4.4;
 document.querySelectorAll('#scale button').forEach(b => b.addEventListener('click', () => { U.focus = 'earth'; let z = parseFloat(b.dataset.z); if (z < 4.5) z = ZE; gotoZ(z); if (z >= 12.5 && z < 19) lookFromNGP(); }));
@@ -193,7 +196,7 @@ $('dateJump').addEventListener('submit', async event => {
 // ---------- frame build
 const BANNER = {
   precision: ['', ''],
-  modeled: ['Modeled zone', 'Earth exists here, but its position cannot be computed from the ephemeris. Planetary orbits are chaotic, and predictions lose meaning beyond roughly 50 to 100 million years. Orbits are drawn from today\'s shape. Planets are not placed on them. The globe shows an arbitrary spin and season.'],
+  modeled: ['Modeled zone', 'Earth exists here. Planets and the Moon are drawn on simple two-body orbits so you can watch the system move, but these phases are illustrative, not a prediction: the ephemeris does not reach this far. Planetary orbits are chaotic, and predictions lose meaning beyond roughly 50 to 100 million years. Orbit shapes are today\'s. The globe shows an arbitrary spin and season.'],
   before: ['No Earth yet', 'Earth forms about 4.54 billion years ago. Before that, the Solar System is a collapsing cloud of gas and dust around a young Sun. The disc shown is illustrative, not a reconstruction.'],
   after: ['No Earth', 'About 7.59 billion years from now the Sun is predicted to swell into a red giant and engulf Earth (Schroeder and Smith 2008). The Sun is drawn at an illustrative large size.'],
 };
@@ -214,6 +217,12 @@ function buildFrame(ms, ty) {
     const spin = S.spinFrozen; orient = ageY < 3e4 ? E.earthOrientation(ms) : E.earthOrientationModeled(ty, spin);
     const ang = (ty * 360) % 360 * Math.PI / 180; fr.sunDir = E.toThree([Math.cos(ang), Math.sin(ang), 0]); fr.bodies.sun = [0, 0, 0];
     fr.moonRel = null; fr.d = null;
+    if (rg === 'modeled' && B && B.els.earth) {
+      // Two-body Kepler phases from the last exact state. Shown so the system visibly moves; not a prediction (orbits are chaotic past ~50-100 Myr).
+      const bodies = bodiesAt(ms);
+      for (const n of E.BODY_LIST) if (bodies[n]) fr.bodies[n] = E.toThree(bodies[n].slice(0, 3).map(x => x / E.AU));
+      if (bodies.earth) { fr.sunDir = E.toThree(E.sunDirFromEarth(bodies.earth.slice(0, 3))); if (bodies.moon) fr.moonRel = E.toThree(E.sub(bodies.moon.slice(0, 3), bodies.earth.slice(0, 3)).map(x => x / E.R_EARTH)); }
+    }
   }
   fr.R = orient.R; fr.orient = orient;
   if (B && S.orbitKey !== undefined) {
@@ -232,7 +241,7 @@ function renderReadout(fr, ms, ty) {
   const rg = fr.regime, d = fr.d, B = S.base;
   const ageMin = B ? (ms - B.ms) / 60000 : 0, ageTxt = Math.abs(ageMin) < 1.5 ? 'exact state at this minute' : 'interpolated from the state at ' + fmtTime(B.ms, 0).slice(0, 16) + ', ' + (Math.abs(ageMin) < 1440 ? nf(Math.abs(ageMin), 0) + ' min' : nf(Math.abs(ageMin) / 1440, Math.abs(ageMin) < 14400 ? 1 : 0) + ' days') + ' away';
   const uni = ty > BIGBANG_Y ? nf((13.787e9 + ty) / 1e9, 3) + ' Gyr' : 'n/a';
-  $('roTime').innerHTML = head('Time', 'UT') + row('Date', fmtTime(ms, ty)) + (Math.abs(ty) < 2.5e5 ? row('Julian date (UT)', nf(E.jdOf(ms), 4)) : '') + row('Age of Universe', uni) + row('Zone', rg === 'precision' ? 'Exact ephemeris' : rg === 'modeled' ? 'Modeled' : 'No Earth') + '<small>' + (rg === 'precision' ? (B ? B.src + '. ' + ageTxt : '') + (Math.abs(ty) > 400 ? '. Dates this far from today have a delta-T uncertainty: each hour of error moves Earth about 100,000 km along its orbit. Calendar shown is proleptic Gregorian.' : '') : 'Planet positions are not computed in this zone.') + '</small>';
+  $('roTime').innerHTML = head('Time', 'UT') + row('Date', fmtTime(ms, ty)) + (Math.abs(ty) < 2.5e5 ? row('Julian date (UT)', nf(E.jdOf(ms), 4)) : '') + row('Age of Universe', uni) + row('Zone', rg === 'precision' ? 'Exact ephemeris' : rg === 'modeled' ? 'Modeled' : 'No Earth') + '<small>' + (rg === 'precision' ? (B ? B.src + '. ' + ageTxt : '') + (Math.abs(ty) > 400 ? '. Dates this far from today have a delta-T uncertainty: each hour of error moves Earth about 100,000 km along its orbit. Calendar shown is proleptic Gregorian.' : '') : (rg === 'modeled' ? 'Planet phases are illustrative two-body motion, not a prediction.' : 'No planets exist in this zone.')) + '</small>';
   if (d) {
     const X = d.rE.map(x => nf(x, 0)), sp = d.sunLoc, eq = d.eqS, va = E.sph(d.eqV);
     $('roHelio').innerHTML = head('Heliocentric ecliptic', 'J2000, Sun-centred') + row('X', X[0] + ' km') + row('Y', X[1] + ' km') + row('Z', X[2] + ' km') + row('Distance', nf(d.r / E.AU, 6) + ' AU') + row('Longitude', deg(sp.lon, 4)) + row('Latitude', deg(sp.lat, 4)) + row('Speed', nf(d.v, 3) + ' km/s') + row('Light time to Sun', nf(d.lightMin, 3) + ' min') + '<small>Source: JPL Horizons, DE441</small>';
