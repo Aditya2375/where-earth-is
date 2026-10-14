@@ -39,7 +39,7 @@ export class Universe {
     this.r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); this.r.autoClear = false; this.r.setClearColor(0x000000, 1);
     this.cam = new THREE.PerspectiveCamera(46, 1, 0.1, 1e6);
-    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.galT = 0; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
+    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.cosmoAge = 13.787; this.galT = 0; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
     this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
@@ -285,6 +285,7 @@ export class Universe {
   setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; if (this.stars2) this.stars2.material.uniforms.uPx.value = px; if (this.dso) this.dso.material.uniforms.uPx.value = px; if (this.exo) this.exo.material.uniforms.uPx.value = px; if (this.qso) this.qso.material.uniforms.uPx.value = px; }
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
+    if (this.cosmos && this.logd > 21 && this.cosmoAge !== this._ca) { this._ca = this.cosmoAge; this.expInfo = this.cosmos.setAge(this.cosmoAge); }
     this.flyStep(); if (this.logd > 14 && this.logd < 26) this.galaxyStep(Math.round(this.galT * 1e4) / 1e4); this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
