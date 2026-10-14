@@ -130,7 +130,7 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
 .card a.btn{display:inline-block;margin-top:12px;font:500 12px var(--mono);letter-spacing:.06em;color:var(--acc)}
 .pick{display:block;width:100%;text-align:left;background:none;border:1px solid var(--line);padding:12px 14px;margin-top:8px;cursor:pointer;font:400 13px var(--mono)}
 .pick:hover{border-color:var(--acc)}
-@media(max-width:1100px){#regimeBanner{max-width:min(520px,calc(100vw - 40px));top:auto;bottom:200px}}
+@media(max-width:1100px){#regimeBanner{max-width:min(520px,calc(100vw - 40px));top:auto;bottom:calc(var(--tl-h,200px) + 88px)}}
 @media(max-width:860px){
  .cols{grid-template-columns:1fr}.srcs{columns:1}
  .row{grid-template-columns:1fr}
@@ -203,4 +203,4 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
 #camctl button.on{color:var(--fg);border-color:var(--acc)}
 @media(max-width:860px){#camctl{left:8px;right:auto;top:auto;bottom:calc(var(--tl-h,210px) + 8px)}}
 #camctl span#flyHint{opacity:.7;margin-left:6px;text-transform:none}#camctl button[hidden],#camctl span[hidden]{display:none}@media(max-width:860px){#flyHint{display:none}}
-#expRead{position:fixed;left:20px;bottom:calc(var(--tl-h,214px) + 46px);z-index:5;font:400 10.5px var(--mono);letter-spacing:.04em;color:var(--dim);max-width:min(420px,calc(100vw - 40px));pointer-events:none;text-shadow:0 0 8px #000}@media(max-width:860px){#expRead{left:8px}}
+#expRead{position:fixed;left:360px;bottom:calc(var(--tl-h,214px) + 46px);z-index:5;font:400 10.5px var(--mono);letter-spacing:.04em;color:var(--dim);max-width:min(420px,calc(100vw - 40px));pointer-events:none;text-shadow:0 0 8px #000}@media(max-width:1100px){#expRead{left:8px;bottom:calc(var(--tl-h,214px) + 44px)}}
