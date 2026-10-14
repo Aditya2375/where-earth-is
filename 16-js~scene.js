@@ -39,7 +39,7 @@ export class Universe {
     this.r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); this.r.autoClear = false; this.r.setClearColor(0x000000, 1);
     this.cam = new THREE.PerspectiveCamera(46, 1, 0.1, 1e6);
-    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.follow = true; this.freeTgt = null;
+    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
     this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
@@ -179,6 +179,14 @@ export class Universe {
     for (const n of names) this.label(L, n[0].toUpperCase() + n.slice(1), () => this.simPos(n), n === 'earth' ? '' : '', () => this.focusOn(n));
     this.label(L, 'Heliopause, about 121 AU', () => [121, 0, 0], 'sm');
   }
+  setExplore(on) { this.explore = on; if (!on) this.fly.set(0, 0, 0); this.keys.clear(); this.flyHold = 0; }
+  flyStep() { // free flight: speed scales with the current view distance so every scale is reachable. Moves a world-space offset (metres) applied to every layer's camera target.
+    const now = performance.now(), dt = Math.min(0.1, (now - this._ft) / 1000); this._ft = now; if (!this.explore) return;
+    const k = this.keys, cp = Math.cos(this.pitch), fwd = new THREE.Vector3(-cp * Math.sin(this.yaw), -Math.sin(this.pitch), -cp * Math.cos(this.yaw)), right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize(), up = new THREE.Vector3(0, 1, 0);
+    let a = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0) + this.flyHold, b = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0), c = (k.has('e') ? 1 : 0) - (k.has('q') ? 1 : 0);
+    if (!a && !b && !c) return; const sp = this.dist * 0.9 * (k.has('shift') ? 4 : 1) * dt;
+    this.fly.addScaledVector(fwd, a * sp).addScaledVector(right, b * sp).addScaledVector(up, c * sp);
+  }
   setFollow(on) { // follow: camera stays locked on the focused body as it moves. free: camera holds its place in space and bodies move past.
     if (!on && this.follow) { const n = this.focus === 'moon' ? 'earth' : this.focus; this.freeTgt = { n, p: V3(this.simPos(n)), e: V3(this.simPos('earth')) }; }
     this.follow = on;
@@ -247,7 +255,7 @@ export class Universe {
     const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) lastPinch = 0; if (down && moved < 6 && performance.now() - down.t < 500) this.click(e.clientX, e.clientY); if (ptrs.size === 0) down = null; };
     c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
     c.addEventListener('wheel', e => { e.preventDefault(); this.hooks.zoomBy(Math.sign(e.deltaY) * Math.min(1, Math.abs(e.deltaY) / 100) * 0.16); this.hooks.touched && this.hooks.touched(); }, { passive: false });
-    addEventListener('keydown', e => { if (e.target.closest('input,textarea,select')) return; if (e.key === '+' || e.key === '=') this.hooks.zoomBy(-0.2); if (e.key === '-') this.hooks.zoomBy(0.2); });
+    addEventListener('keyup', e => this.keys.delete(e.key.toLowerCase())); addEventListener('keydown', e => { if (e.target.closest('input,textarea,select')) return; if (this.explore) { const kk = e.key.toLowerCase(); if ('wasdqe'.includes(kk) && kk.length === 1 || kk.startsWith('arrow') || kk === 'shift') { this.keys.add(kk); if (kk.startsWith('arrow')) e.preventDefault(); } } if (e.key === '+' || e.key === '=') this.hooks.zoomBy(-0.2); if (e.key === '-') this.hooks.zoomBy(0.2); });
   }
   camSetup(L) {
     const d = this.dist, dl = d / L.unit, cp = Math.cos(this.pitch);
@@ -255,6 +263,7 @@ export class Universe {
     let tgt = new THREE.Vector3(0, 0, 0);
     if (L.name === 'solar') { tgt = this.follow || !this.freeTgt ? V3(this.simPos(this.focus === 'moon' ? 'earth' : this.focus)) : this.freeTgt.p.clone(); }
     else if (L.name === 'earth' && !this.follow && this.freeTgt) { tgt = this.freeTgt.e.clone().sub(V3(this.simPos('earth'))).multiplyScalar(E.AU / RE); }
+    if (this.explore && L.name !== 'earth' && L.name !== 'sky') tgt = tgt.clone().addScaledVector(this.fly, 1 / L.unit);
     this.cam.position.copy(tgt).addScaledVector(dir, dl); this.cam.up.set(0, 1, 0); this.cam.lookAt(tgt);
     this.cam.near = dl * 0.0008; this.cam.far = dl * 4000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
   }
@@ -267,7 +276,7 @@ export class Universe {
   setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; if (this.stars2) this.stars2.material.uniforms.uPx.value = px; if (this.dso) this.dso.material.uniforms.uPx.value = px; if (this.exo) this.exo.material.uniforms.uPx.value = px; if (this.qso) this.qso.material.uniforms.uPx.value = px; }
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
-    this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
+    this.flyStep(); this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
     { const s = this.layers.sky; const cp = Math.cos(this.pitch), dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)); this.cam.position.set(0, 0, 0); this.cam.up.set(0, 1, 0); this.cam.lookAt(dir.clone().multiplyScalar(-1)); this.cam.near = 1; this.cam.far = 2000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
