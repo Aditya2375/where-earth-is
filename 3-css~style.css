@@ -202,3 +202,4 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
 #camctl button:hover{color:var(--fg)}
 #camctl button.on{color:var(--fg);border-color:var(--acc)}
 @media(max-width:860px){#camctl{left:8px;right:auto;top:auto;bottom:calc(var(--tl-h,210px) + 8px)}}
+#camctl span#flyHint{opacity:.7;margin-left:6px;text-transform:none}#camctl button[hidden],#camctl span[hidden]{display:none}@media(max-width:860px){#flyHint{display:none}}
