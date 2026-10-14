@@ -39,7 +39,7 @@ export class Universe {
     this.r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); this.r.autoClear = false; this.r.setClearColor(0x000000, 1);
     this.cam = new THREE.PerspectiveCamera(46, 1, 0.1, 1e6);
-    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.cosmoAge = 13.787; this.galT = 0; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
+    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.pmYears = 35.5; this.cosmoAge = 13.787; this.galT = 0; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
     this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
@@ -67,19 +67,20 @@ export class Universe {
         const k = Math.max(-0.2, Math.min(1.6, bv)); const r = k < 0.6 ? 0.78 + 0.22 * (k + 0.2) / 0.8 : 1, bl = k < 0.6 ? 1 : Math.max(0.55, 1 - (k - 0.6) * 0.45), g = k < 0.6 ? 0.86 + 0.14 * (k + 0.2) / 0.8 : Math.max(0.65, 1 - (k - 0.6) * 0.25);
         col.push(r, g, bl);
       }
-      this.stars = points(pos, size, col, al); L.scene.add(this.stars); this.reg(L, this.stars, 1);
+      this.starsArr = arr; this.stars = points(pos, size, col, al); L.scene.add(this.stars); this.reg(L, this.stars, 1);
       // Hipparcos (ESA 1997): every catalogued star fainter than the bright set above, to V 9.5. Real positions, magnitudes and B-V colours.
       fetch('data/hip.csv').then(r => r.ok ? r.text() : Promise.reject()).then(txt => {
-        const p2 = [], s2 = [], c2 = [], a2 = [];
+        const p2 = [], s2 = [], c2 = [], a2 = [], rows = [];
         for (const line of txt.split('\n')) {
           const f = line.split(','); if (f.length < 4) continue;
-          const ra = +f[0], dec = +f[1], mag = +f[2], bv = +f[3]; if (!(mag >= 6.0)) continue;
+          const ra = +f[0], dec = +f[1], mag = +f[2], bv = +f[3]; rows.push([ra, dec, mag, +f[4] || 0, +f[5] || 0]); if (!(mag >= 6.0)) continue;
           const t = E.toThree(E.eqToEcl(E.fromSph(ra, dec, 1)));
           p2.push(t[0] * 500, t[1] * 500, t[2] * 500);
           s2.push(0.9 + (9.6 - mag) * 0.2); a2.push(Math.max(0.12, 0.5 - (mag - 6) * 0.1));
           const k = Math.max(-0.2, Math.min(1.8, isNaN(bv) ? 0.6 : bv)); const r = k < 0.6 ? 0.78 + 0.22 * (k + 0.2) / 0.8 : 1, bl = k < 0.6 ? 1 : Math.max(0.55, 1 - (k - 0.6) * 0.45), g = k < 0.6 ? 0.86 + 0.14 * (k + 0.2) / 0.8 : Math.max(0.65, 1 - (k - 0.6) * 0.25);
           c2.push(r, g, bl);
         }
+        this.pmBuild(arr, rows);
         this.stars2 = points(p2, s2, c2, a2); L.scene.add(this.stars2); this.reg(L, this.stars2, 1); this.hipCount = p2.length / 3 + arr.length;
       }).catch(() => {});
       // OpenNGC (CC-BY-SA 4.0): catalogued deep-sky objects. Sky positions only; the catalogue gives no distance, so they sit on the sky sphere.
@@ -199,6 +200,21 @@ export class Universe {
     const M = this.galM, R0 = this.galR0, t = this._gt || 0, x = v[0] - R0, y = v[1], z = v[2], a = 0.2342 / Math.max(Math.hypot(x, y), 2) * t, c = Math.cos(a), s = Math.sin(a), X = R0 + x * c + y * s, Y = -x * s + y * c, sh = this.galShift;
     return [M[0][0] * X + M[0][1] * Y + M[0][2] * z + sh[0], M[1][0] * X + M[1][1] * Y + M[1][2] * z + sh[1], M[2][0] * X + M[2][1] * Y + M[2][2] * z + sh[2]];
   }
+  pmBuild(arr, rows) { // Hipparcos proper motion (mas/yr, epoch J1991.25): linear extrapolation of each star's direction. Bright set matched to catalogue rows by position.
+    const D = Math.PI / 180, MAS = 4.84813681e-9, cell = (a, d) => Math.round(a * 20) + ',' + Math.round(d * 20), H = new Map();
+    for (const r of rows) { const k = cell(r[0], r[1]); (H.get(k) || H.set(k, []).get(k)).push(r); }
+    const mk = list => { const n = list.length, B = new Float32Array(n * 3), Ea = new Float32Array(n * 3), No = new Float32Array(n * 3), mu = new Float32Array(n * 2);
+      list.forEach(([ra, de, pa, pd], i) => { const a = ra * D, d = de * D, v = (x, y, z) => E.toThree(E.eqToEcl([x, y, z])); const b = v(Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)), e = v(-Math.sin(a), Math.cos(a), 0), no = v(-Math.sin(d) * Math.cos(a), -Math.sin(d) * Math.sin(a), Math.cos(d));
+        B.set(b, i * 3); Ea.set(e, i * 3); No.set(no, i * 3); mu[2 * i] = pa * MAS; mu[2 * i + 1] = pd * MAS; }); return { n, B, Ea, No, mu }; };
+    const faint = rows.filter(r => r[2] >= 6.0).map(r => [r[0], r[1], r[3], r[4]]), bright = [];
+    for (const [ra, dec] of arr) { let best = null, bd = 0.03; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const r of (H.get(Math.round(ra * 20) + i + ',' + (Math.round(dec * 20) + j)) || [])) { const dd = Math.hypot((r[0] - ra) * Math.cos(dec * D), r[1] - dec); if (dd < bd) { bd = dd; best = r; } } bright.push([ra, dec, best ? best[3] : 0, best ? best[4] : 0]); }
+    this.pmB = mk(bright); this.pmF = mk(faint); this._py = null;
+  }
+  pmStep(yrs) { // yrs since J1991.25
+    if (!this.pmB || yrs === this._py) return; this._py = yrs;
+    const run = (P, pts) => { if (!pts) return; const A = pts.geometry.attributes.position.array, { n, B, Ea, No, mu } = P; for (let i = 0; i < n; i++) { const j = 3 * i, a = mu[2 * i] * yrs, d = mu[2 * i + 1] * yrs; let x = B[j] + Ea[j] * a + No[j] * d, y = B[j + 1] + Ea[j + 1] * a + No[j + 1] * d, z = B[j + 2] + Ea[j + 2] * a + No[j + 2] * d; const q = 500 / Math.hypot(x, y, z); A[j] = x * q; A[j + 1] = y * q; A[j + 2] = z * q; } pts.geometry.attributes.position.needsUpdate = true; };
+    run(this.pmB, this.stars); run(this.pmF, this.stars2);
+  }
   setFollow(on) { // follow: camera stays locked on the focused body as it moves. free: camera holds its place in space and bodies move past.
     if (!on && this.follow) { const n = this.focus === 'moon' ? 'earth' : this.focus; this.freeTgt = { n, p: V3(this.simPos(n)), e: V3(this.simPos('earth')) }; }
     this.follow = on;
@@ -290,6 +306,7 @@ export class Universe {
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
     if (this.cosmos && this.logd > 21 && this.cosmoAge !== this._ca) { this._ca = this.cosmoAge; this.expInfo = this.cosmos.setAge(this.cosmoAge); }
+    this.pmStep(Math.round(this.pmYears * 20) / 20);
     this.flyStep(); if (this.logd > 14 && this.logd < 26) this.galaxyStep(Math.round(this.galT * 1e4) / 1e4); this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
