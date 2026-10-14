@@ -67,7 +67,9 @@ U = new Universe($('gl'), { stars: H.stars, landMask: H.landMask, gotoZ, zoomBy,
 
 // camera mode: follow keeps the view locked on the focused body, free holds the view in space
 function camMode(on) { U.setFollow(on); $('camFollow').classList.toggle('on', on); $('camFree').classList.toggle('on', !on); $('camFollow').setAttribute('aria-pressed', on); $('camFree').setAttribute('aria-pressed', !on); }
-$('camFollow').addEventListener('click', () => camMode(true)); $('camFree').addEventListener('click', () => camMode(false));
+function expMode(on) { U.setExplore(on); $('camExplore').classList.toggle('on', on); $('camExplore').setAttribute('aria-pressed', on); ['flyHint', 'flyF', 'flyB'].forEach(i => $(i).hidden = !on); if (on) { camMode(false); $('camFree').classList.remove('on'); $('camFollow').classList.remove('on'); } else camMode(true); }
+$('camFollow').addEventListener('click', () => { if (U.explore) expMode(false); camMode(true); }); $('camFree').addEventListener('click', () => { if (U.explore) expMode(false); camMode(false); }); $('camExplore').addEventListener('click', () => expMode(!U.explore));
+[['flyF', 1], ['flyB', -1]].forEach(([i, v]) => { const b = $(i); b.addEventListener('pointerdown', e => { b.setPointerCapture(e.pointerId); U.flyHold = v; }); const off = () => { U.flyHold = 0; }; b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); });
 // scale chips
 const MOB = innerWidth < 860, ZE = MOB ? 4.8 : 4.4;
 document.querySelectorAll('#scale button').forEach(b => b.addEventListener('click', () => { U.focus = 'earth'; let z = parseFloat(b.dataset.z); if (z < 4.5) z = ZE; gotoZ(z); if (z >= 12.5 && z < 19) lookFromNGP(); }));
