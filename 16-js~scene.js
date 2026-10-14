@@ -195,6 +195,10 @@ export class Universe {
       A[3 * i] = M[0][0] * X + M[0][1] * Y + M[0][2] * z + sh[0]; A[3 * i + 1] = M[1][0] * X + M[1][1] * Y + M[1][2] * z + sh[1]; A[3 * i + 2] = M[2][0] * X + M[2][1] * Y + M[2][2] * z + sh[2]; }
     pa.needsUpdate = true; const gm = this.galMark.geometry.attributes.position.array, g = this.galGC; gm[0] = g[0] + sh[0]; gm[1] = g[1] + sh[1]; gm[2] = g[2] + sh[2]; this.galMark.geometry.attributes.position.needsUpdate = true; this.galOrb.position.set(sh[0], sh[1], sh[2]);
   }
+  galPoint(v) { // a fixed object in galactocentric terms: orbits on the same flat curve as the disc, drawn Sun-centred
+    const M = this.galM, R0 = this.galR0, t = this._gt || 0, x = v[0] - R0, y = v[1], z = v[2], a = 0.2342 / Math.max(Math.hypot(x, y), 2) * t, c = Math.cos(a), s = Math.sin(a), X = R0 + x * c + y * s, Y = -x * s + y * c, sh = this.galShift;
+    return [M[0][0] * X + M[0][1] * Y + M[0][2] * z + sh[0], M[1][0] * X + M[1][1] * Y + M[1][2] * z + sh[1], M[2][0] * X + M[2][1] * Y + M[2][2] * z + sh[2]];
+  }
   setFollow(on) { // follow: camera stays locked on the focused body as it moves. free: camera holds its place in space and bodies move past.
     if (!on && this.follow) { const n = this.focus === 'moon' ? 'earth' : this.focus; this.freeTgt = { n, p: V3(this.simPos(n)), e: V3(this.simPos('earth')) }; }
     this.follow = on;
@@ -225,15 +229,15 @@ export class Universe {
     this.label(L, 'Sun and Earth', () => [0, 0, 0], '', () => this.focusOn('earth'));
     this.label(L, 'Sun orbit, about 8.15 kpc', () => { const q = gal(-R0 * Math.cos(2.4), -R0 * Math.sin(2.4), 0); return [q[0] + this.galShift[0], q[1] + this.galShift[1], q[2] + this.galShift[2]]; }, 'sm');
     this.label(L, 'Schematic disc, not a map', () => gal(9, 9, 0), 'sm');
-    for (const a of E.ANCHORS.filter(a => a.kind === 'lg' && a.d < 100)) { const p = E.toThree(E.anchorEcl(a)); this.label(L, a.name, () => [p[0] + this.galShift[0], p[1] + this.galShift[1], p[2] + this.galShift[2]], 'sm'); }
+    for (const a of E.ANCHORS.filter(a => (a.kind === 'lg' || a.kind === 'bh') && a.d < 100)) { const v = E.fromSph(a.l, a.b, a.d); this.label(L, a.name, () => this.galPoint(v), 'sm'); }
   }
   // ---- Local Group and beyond (unit: Mpc, Sun-centred)
   buildLG() {
     const L = this.mkLayer('lg', MPC); this.lgL = L;
     const pos = [0, 0, 0], size = [9], col = [0.56, 0.82, 1], al = [1];
-    for (const a of E.ANCHORS) { if (a.id === 'gc') continue; const e = E.anchorEcl(a), t = E.toThree(e); pos.push(t[0] / 1000, t[1] / 1000, t[2] / 1000); const big = a.kind === 'cl'; size.push(big ? 14 : 6); col.push(big ? 1 : 0.82, big ? 0.6 : 0.88, big ? 0.4 : 1); al.push(big ? 0.9 : 1); }
+    for (const a of E.ANCHORS) { if (a.id === 'gc' || a.kind === 'bh') continue; const e = E.anchorEcl(a), t = E.toThree(e); pos.push(t[0] / 1000, t[1] / 1000, t[2] / 1000); const big = a.kind === 'cl'; size.push(big ? 14 : 6); col.push(big ? 1 : 0.82, big ? 0.6 : 0.88, big ? 0.4 : 1); al.push(big ? 0.9 : 1); }
     this.lgPts = points(pos, size, col, al); L.scene.add(this.lgPts); this.reg(L, this.lgPts, 1);
-    for (const a of E.ANCHORS) { if (a.id === 'gc') continue; const t = E.toThree(E.anchorEcl(a)); this.label(L, a.name, () => [t[0] / 1000, t[1] / 1000, t[2] / 1000], a.kind === 'cl' ? '' : 'sm'); }
+    for (const a of E.ANCHORS) { if (a.id === 'gc' || a.kind === 'bh') continue; const t = E.toThree(E.anchorEcl(a)); this.label(L, a.name, () => [t[0] / 1000, t[1] / 1000, t[2] / 1000], a.kind === 'cl' ? '' : 'sm'); }
     this.label(L, 'Milky Way (you are here)', () => [0, 0, 0], '', () => this.focusOn('earth'));
     this.cmbArrow = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xff4b2b, transparent: true, opacity: 0.9 })); L.scene.add(this.cmbArrow); this.reg(L, this.cmbArrow, 0.9);
     const d = E.toThree(E.galToEcl(E.fromSph(E.FRAMES.cmbL, E.FRAMES.cmbB, 1)));
