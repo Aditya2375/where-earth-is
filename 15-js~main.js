@@ -277,6 +277,7 @@ function loop(now) {
   advanceTime(dt);
   if (Math.abs(Z.zt - U.logd) > 1e-4) U.logd += (Z.zt - U.logd) * 0.16; else U.logd = Z.zt;
   const ms = S.simMs, ty = S.tyFar != null ? S.tyFar : (ms - T0) / YEAR;
+  if (tick % 20 === 1) { let e = $('tSlider'); while (e && (e.getBoundingClientRect().height < 150 || !['fixed', 'absolute'].includes(getComputedStyle(e).position))) e = e.parentElement; if (e) document.documentElement.style.setProperty('--tl-h', Math.max(80, innerHeight - e.getBoundingClientRect().top) + 'px'); }
   U.galT = ty / 1e6; U.pmYears = ty + 35.6; U.cosmoAge = Math.max(1e-6, 13.787 + ty / 1e9);
   const rg = E.regime(S.tyFar != null ? T0 + ty * YEAR : ms);
   // fetch policy
