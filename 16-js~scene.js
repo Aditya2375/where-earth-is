@@ -42,7 +42,7 @@ export class Universe {
     this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.pmYears = 35.5; this.cosmoAge = 13.787; this.galT = 0; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
-    this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
+    this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildInv(); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
     try { this.post = new Post(this.r, TIER); } catch (e) { this.post = null; }
     this.resize(); addEventListener('resize', () => this.resize());
     this.bindInput();
@@ -220,6 +220,42 @@ export class Universe {
     this.follow = on;
   }
   simPos(n) { const p = this.simBodies[n]; return p ? p : [0, 0, 0]; } // three coords, AU
+  // ---- solar system inventory: dwarf planets, asteroids, comet, belts, Oort cloud, notable moons (unit: AU)
+  buildInv() {
+    const L = this.solarL, D = Math.PI / 180, kepl = (el, jd) => { const [a, e, i, O, w, M0] = el, n = 0.9856076686 / Math.pow(a, 1.5), M = ((M0 + n * (jd - 2451545)) % 360) * D; let Ee = M + e * Math.sin(M); for (let k = 0; k < 6; k++) Ee -= (Ee - e * Math.sin(Ee) - M) / (1 - e * Math.cos(Ee)); const x = a * (Math.cos(Ee) - e), y = a * Math.sqrt(1 - e * e) * Math.sin(Ee), cw = Math.cos(w * D), sw = Math.sin(w * D), cO = Math.cos(O * D), sO = Math.sin(O * D), ci = Math.cos(i * D), si = Math.sin(i * D);
+      const X = (cw * cO - sw * sO * ci) * x + (-sw * cO - cw * sO * ci) * y, Y = (cw * sO + sw * cO * ci) * x + (-sw * sO + cw * cO * ci) * y, Z = (sw * si) * x + (cw * si) * y; return E.toThree([X, Y, Z]); };
+    this.kepl = kepl;
+    // [name, a AU, e, i, Node, argPeri, M0 at J2000 (deg), note]. Orbit shapes are real; mean anomaly is approximate for the slow outer bodies.
+    const OBJ = [['Ceres (dwarf planet)', 2.7675, 0.0758, 10.594, 80.305, 73.597, 95.989, 1], ['Vesta', 2.3615, 0.0887, 7.140, 103.851, 151.198, 20.864, 1], ['Pallas', 2.7728, 0.2313, 34.841, 173.080, 310.049, 78.230, 1],
+      ['Halley\'s Comet', 17.834, 0.96714, 162.26, 58.42, 111.33, 66.4, 1], ['Haumea (dwarf planet)', 43.13, 0.1949, 28.21, 122.17, 239.18, 218.2, 0], ['Makemake (dwarf planet)', 45.43, 0.1613, 29.0, 79.62, 297.24, 165.5, 0], ['Eris (dwarf planet)', 67.78, 0.4407, 44.04, 35.95, 151.64, 205.99, 0]];
+    this.invObj = OBJ; const pos = [], size = [], col = [], al = [];
+    OBJ.forEach(o => { pos.push(0, 0, 0); size.push(3.4); col.push(0.86, 0.82, 0.74); al.push(1); const ring = []; for (let k = 0; k <= 240; k++) { const a = k / 240 * 2 * Math.PI, e = o[2], r = o[1] * (1 - e * e) / (1 + e * Math.cos(a)); ring.push(r); }
+      const pts = []; for (let k = 0; k <= 240; k++) { const el = o.slice(1, 7); const nu = k / 240 * 2 * Math.PI, r = o[1] * (1 - o[2] * o[2]) / (1 + o[2] * Math.cos(nu)), x = r * Math.cos(nu), y = r * Math.sin(nu), w = o[5] * D, O = o[4] * D, i = o[3] * D, cw = Math.cos(w), sw = Math.sin(w), cO = Math.cos(O), sO = Math.sin(O), ci = Math.cos(i), si = Math.sin(i);
+        const t = E.toThree([(cw * cO - sw * sO * ci) * x + (-sw * cO - cw * sO * ci) * y, (cw * sO + sw * cO * ci) * x + (-sw * sO + cw * cO * ci) * y, (sw * si) * x + (cw * si) * y]); pts.push(new THREE.Vector3(t[0], t[1], t[2])); }
+      const l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xcfc6b4, transparent: true, opacity: 0.14 })); L.scene.add(l); this.reg(L, l, 0.14); });
+    this.invPts = points(pos, size, col, al); L.scene.add(this.invPts); this.reg(L, this.invPts, 1);
+    OBJ.forEach((o, i) => this.label(L, o[0] + (o[7] ? '' : ' - orbit real, position approximate'), () => { const a = this.invPts.geometry.attributes.position.array; return [a[3 * i], a[3 * i + 1], a[3 * i + 2]]; }, 'sm'));
+    // belts: statistical populations drawn from real orbital ranges. Particles are not catalogued objects.
+    let sd = 99; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; }, gs = () => (rnd() + rnd() + rnd() + rnd() - 2) / 0.58, mkBelt = (n, a0, a1, ei, sg, c, sz, al0, tag) => { const el = [], P = [], S = [], C = [], A = []; for (let i = 0; i < n; i++) { const a = a0 + (a1 - a0) * Math.pow(rnd(), 1), e = Math.abs(gs()) * 0.06 + 0.02, inc = Math.abs(gs()) * ei; el.push([a, e, inc, rnd() * 360, rnd() * 360, rnd() * 360]); P.push(0, 0, 0); S.push(sz * (0.6 + rnd() * 0.8)); C.push(...c); A.push(al0 * (0.5 + 0.5 * rnd())); }
+      const pt = points(P, S, C, A); L.scene.add(pt); this.reg(L, pt, 1); pt.userData.el = el; pt.userData.tag = tag; return pt; };
+    this.beltA = mkBelt(7000, 2.1, 3.3, 9, 0, [0.78, 0.72, 0.62], 1.2, 0.5, 'main'); this.beltK = mkBelt(6000, 30, 50, 8, 0, [0.62, 0.74, 0.95], 1.3, 0.45, 'kuiper');
+    // Oort cloud: sphere of icy bodies about 2,000 to 100,000 AU. Schematic density; no object in it has been imaged.
+    { const P = [], S = [], C = [], A = []; for (let i = 0; i < 5000; i++) { const r = Math.exp(Math.log(2000) + rnd() * Math.log(50)), u = rnd() * 2 - 1, th = rnd() * 2 * Math.PI, q = Math.sqrt(1 - u * u); P.push(r * q * Math.cos(th), r * u, r * q * Math.sin(th)); S.push(1 + rnd() * 1.2); C.push(0.7, 0.85, 1); A.push(0.18 + rnd() * 0.25); }
+      this.oort = points(P, S, C, A); L.scene.add(this.oort); this.reg(L, this.oort, 1); }
+    this.label(L, 'Asteroid belt, 2.1 to 3.3 AU (statistical, not individual rocks)', () => this.beltLabel('main'), 'sm');
+    this.label(L, 'Kuiper belt, 30 to 50 AU (statistical)', () => [0, 0, 40], 'sm'); this.label(L, 'Oort cloud: about 2,000 to 100,000 AU, never imaged. Schematic', () => [0, 14000, 0], 'sm');
+    // notable moons: real orbital periods and radii around the parent; phase at epoch is modeled, orbit plane approximated as the ecliptic
+    this.MOONS = [['Io', 'jupiter', 421700, 1.769138, 1], ['Europa', 'jupiter', 671100, 3.551181, 1], ['Ganymede', 'jupiter', 1070400, 7.154553, 1], ['Callisto', 'jupiter', 1882700, 16.689018, 1], ['Titan', 'saturn', 1221870, 15.945421, 1], ['Triton', 'neptune', 354759, 5.876854, -1], ['Charon', 'pluto', 19591, 6.38723, 1]];
+    { const P = [], S = [], C = [], A = []; this.MOONS.forEach(() => { P.push(0, 0, 0); S.push(2.6); C.push(0.82, 0.86, 0.9); A.push(1); }); this.moonPts = points(P, S, C, A); L.scene.add(this.moonPts); this.reg(L, this.moonPts, 1); }
+    this.MOONS.forEach((m, i) => this.label(L, m[0] + ' (phase modeled)', () => { const a = this.moonPts.geometry.attributes.position.array; return [a[3 * i], a[3 * i + 1], a[3 * i + 2]]; }, 'sm'));
+  }
+  beltLabel() { return [2.7 * 0.7, 0, 2.7 * 0.7]; }
+  invStep(ms) {
+    if (!this.invPts || !(ms === ms) || ms === this._im) return; this._im = ms; const jd = ms / 86400000 + 2440587.5;
+    const a = this.invPts.geometry.attributes.position.array; this.invObj.forEach((o, i) => { const t = this.kepl(o.slice(1, 7), jd); a[3 * i] = t[0]; a[3 * i + 1] = t[1]; a[3 * i + 2] = t[2]; }); this.invPts.geometry.attributes.position.needsUpdate = true;
+    for (const b of [this.beltA, this.beltK]) { const el = b.userData.el, A = b.geometry.attributes.position.array; for (let i = 0; i < el.length; i++) { const t = this.kepl(el[i], jd); A[3 * i] = t[0]; A[3 * i + 1] = t[1]; A[3 * i + 2] = t[2]; } b.geometry.attributes.position.needsUpdate = true; }
+    const M = this.moonPts.geometry.attributes.position.array, AUKM = 149597870.7; this.MOONS.forEach((m, i) => { const p = this.simPos(m[1]), ang = (jd - 2451545) / m[3] * 2 * Math.PI * m[4] + i * 1.7, r = m[2] / AUKM; M[3 * i] = p[0] + r * Math.cos(ang); M[3 * i + 1] = p[1]; M[3 * i + 2] = p[2] - r * Math.sin(ang); }); this.moonPts.geometry.attributes.position.needsUpdate = true;
+  }
   // ---- galaxy (unit: kpc, Sun-centred, ecliptic->three)
   buildGalaxy() {
     const L = this.mkLayer('galaxy', KPC); this.galL = L;
@@ -307,6 +343,7 @@ export class Universe {
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
     if (this.cosmos && this.logd > 21 && this.cosmoAge !== this._ca) { this._ca = this.cosmoAge; this.expInfo = this.cosmos.setAge(this.cosmoAge); }
     this.pmStep(Math.round(this.pmYears * 20) / 20);
+    if (frame && frame.ms != null) this.invStep(frame.ms);
     this.flyStep(); if (this.logd > 14 && this.logd < 26) this.galaxyStep(Math.round(this.galT * 1e4) / 1e4); this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
