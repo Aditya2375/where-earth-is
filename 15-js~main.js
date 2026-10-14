@@ -277,6 +277,7 @@ function loop(now) {
   advanceTime(dt);
   if (Math.abs(Z.zt - U.logd) > 1e-4) U.logd += (Z.zt - U.logd) * 0.16; else U.logd = Z.zt;
   const ms = S.simMs, ty = S.tyFar != null ? S.tyFar : (ms - T0) / YEAR;
+  U.galT = ty / 1e6;
   const rg = E.regime(S.tyFar != null ? T0 + ty * YEAR : ms);
   // fetch policy
   if (S.base) {
