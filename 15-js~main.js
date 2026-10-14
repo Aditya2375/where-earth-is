@@ -277,7 +277,7 @@ function loop(now) {
   advanceTime(dt);
   if (Math.abs(Z.zt - U.logd) > 1e-4) U.logd += (Z.zt - U.logd) * 0.16; else U.logd = Z.zt;
   const ms = S.simMs, ty = S.tyFar != null ? S.tyFar : (ms - T0) / YEAR;
-  U.galT = ty / 1e6;
+  U.galT = ty / 1e6; U.cosmoAge = Math.max(1e-6, 13.787 + ty / 1e9);
   const rg = E.regime(S.tyFar != null ? T0 + ty * YEAR : ms);
   // fetch policy
   if (S.base) {
@@ -293,7 +293,7 @@ function loop(now) {
     const b = BANNER[rg]; const bn = $('regimeBanner'); bn.className = rg; $('rgName').textContent = b[0]; $('rgText').textContent = b[1]; bn.style.opacity = rg === 'precision' ? 0 : 1;
     $('tDate').textContent = fmtTime(ms, ty);
     const base = S.base, st = rg === 'precision' ? (S.live ? 'LIVE' : 'SCRUBBING') + (S.fetching ? ' - fetching exact state' : '') : rg === 'modeled' ? 'MODELED' : 'NO EARTH';
-    $('tState').textContent = st; $('scaleRead').textContent = 'View ' + fmtDist(U.dist); $('imgCap').style.opacity = U.logd < 6.4 && U.photoReady && (!U.focus || U.focus === 'earth' || U.focus === 'moon') ? 0.8 : 0;
+    $('tState').textContent = st; $('scaleRead').textContent = 'View ' + fmtDist(U.dist); $('expRead').textContent = U.logd > 21 && U.expInfo ? 'Expansion (LCDM): scale factor a = ' + (U.expInfo.a < 0.01 ? U.expInfo.a.toExponential(2) : U.expInfo.a.toFixed(3)) + '. Galaxies and the Local Group are bound and do not expand.' : ''; $('imgCap').style.opacity = U.logd < 6.4 && U.photoReady && (!U.focus || U.focus === 'earth' || U.focus === 'moon') ? 0.8 : 0;
     chipSync(); syncSlider();
   }
   requestAnimationFrame(loop);
