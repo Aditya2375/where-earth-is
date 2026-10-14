@@ -39,7 +39,7 @@ export class Universe {
     this.r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); this.r.autoClear = false; this.r.setClearColor(0x000000, 1);
     this.cam = new THREE.PerspectiveCamera(46, 1, 0.1, 1e6);
-    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
+    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.explore = false; this.galT = 0; this.fly = new THREE.Vector3(); this.keys = new Set(); this.flyHold = 0; this._ft = performance.now();
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
     this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
@@ -187,6 +187,14 @@ export class Universe {
     if (!a && !b && !c) return; const sp = this.dist * 0.9 * (k.has('shift') ? 4 : 1) * dt;
     this.fly.addScaledVector(fwd, a * sp).addScaledVector(right, b * sp).addScaledVector(up, c * sp);
   }
+  galaxyStep(tMyr) { // differential rotation: flat rotation curve 229 km/s (0.2342 kpc.rad/Myr), the Sun orbits the centre at the same curve; scene stays Sun-centred so the disc, centre and neighbours shift as the Sun travels. Modeled, not observed.
+    if (!this.galPts || tMyr === this._gt) return; this._gt = tMyr; const G = this.galG0, M = this.galM, R0 = this.galR0, pa = this.galPts.geometry.attributes.position, A = pa.array, K = 0.2342;
+    const om = r => K / Math.max(r, 2), a0 = om(R0) * tMyr, sx = -R0 * Math.cos(a0), sy = R0 * Math.sin(a0), Dx = -(sx + R0), Dy = -sy;
+    const sh = [M[0][0] * Dx + M[0][1] * Dy, M[1][0] * Dx + M[1][1] * Dy, M[2][0] * Dx + M[2][1] * Dy]; this.galShift = sh;
+    for (let i = 0, n = G.length / 3; i < n; i++) { const x = G[3 * i], y = G[3 * i + 1], z = G[3 * i + 2], a = om(Math.hypot(x, y)) * tMyr, c = Math.cos(a), s = Math.sin(a), X = R0 + x * c + y * s, Y = -x * s + y * c;
+      A[3 * i] = M[0][0] * X + M[0][1] * Y + M[0][2] * z + sh[0]; A[3 * i + 1] = M[1][0] * X + M[1][1] * Y + M[1][2] * z + sh[1]; A[3 * i + 2] = M[2][0] * X + M[2][1] * Y + M[2][2] * z + sh[2]; }
+    pa.needsUpdate = true; const gm = this.galMark.geometry.attributes.position.array, g = this.galGC; gm[0] = g[0] + sh[0]; gm[1] = g[1] + sh[1]; gm[2] = g[2] + sh[2]; this.galMark.geometry.attributes.position.needsUpdate = true; this.galOrb.position.set(sh[0], sh[1], sh[2]);
+  }
   setFollow(on) { // follow: camera stays locked on the focused body as it moves. free: camera holds its place in space and bodies move past.
     if (!on && this.follow) { const n = this.focus === 'moon' ? 'earth' : this.focus; this.freeTgt = { n, p: V3(this.simPos(n)), e: V3(this.simPos('earth')) }; }
     this.follow = on;
@@ -195,28 +203,29 @@ export class Universe {
   // ---- galaxy (unit: kpc, Sun-centred, ecliptic->three)
   buildGalaxy() {
     const L = this.mkLayer('galaxy', KPC); this.galL = L;
-    const R0 = E.FRAMES.R0_kpc, pos = [], size = [], col = [], al = [];
+    const R0 = E.FRAMES.R0_kpc, pos = [], size = [], col = [], al = [], G0 = [];
     const gal = (qx, qy, qz) => { const t = E.toThree(E.galToEcl([R0 + qx, qy, qz])); return t; };
     let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     const gauss = () => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); return (s - 2) / 0.58; };
     for (let i = 0; i < 42000; i++) { // four-arm schematic, log spiral pitch about 12 deg
       const arm = i % 4, rr = 1.5 + Math.pow(rnd(), 0.8) * 14.5, th = (Math.log(rr / 1.5) / Math.tan(12 * Math.PI / 180)) + arm * Math.PI / 2 + gauss() * (0.12 + 0.02 * rr);
       const x = rr * Math.cos(th), y = rr * Math.sin(th), z = gauss() * 0.12 * (1 - rr / 22);
-      const t = gal(x, y, z); pos.push(t[0], t[1], t[2]); size.push(1.6 + rnd() * 2.2); const w = Math.exp(-rr / 9); col.push(0.55 + 0.4 * w, 0.62 + 0.25 * w, 1 - 0.3 * w); al.push(0.16 + 0.34 * rnd());
+      G0.push(x, y, z); const t = gal(x, y, z); pos.push(t[0], t[1], t[2]); size.push(1.6 + rnd() * 2.2); const w = Math.exp(-rr / 9); col.push(0.55 + 0.4 * w, 0.62 + 0.25 * w, 1 - 0.3 * w); al.push(0.16 + 0.34 * rnd());
     }
-    for (let i = 0; i < 9000; i++) { const rr = Math.abs(gauss()) * 1.6, ph = rnd() * 2 * Math.PI, ct = rnd() * 2 - 1, st = Math.sqrt(1 - ct * ct); const t = gal(rr * st * Math.cos(ph), rr * st * Math.sin(ph) * 1, rr * ct * 0.55); pos.push(t[0], t[1], t[2]); size.push(1.2 + rnd() * 1.6); col.push(1, 0.84, 0.6); al.push(0.2 + 0.4 * rnd()); }
+    for (let i = 0; i < 9000; i++) { const rr = Math.abs(gauss()) * 1.6, ph = rnd() * 2 * Math.PI, ct = rnd() * 2 - 1, st = Math.sqrt(1 - ct * ct); const bx = rr * st * Math.cos(ph), by = rr * st * Math.sin(ph), bz = rr * ct * 0.55; G0.push(bx, by, bz); const t = gal(bx, by, bz); pos.push(t[0], t[1], t[2]); size.push(1.2 + rnd() * 1.6); col.push(1, 0.84, 0.6); al.push(0.2 + 0.4 * rnd()); }
+    this.galG0 = new Float32Array(G0); this.galR0 = R0; { const o = E.toThree(E.galToEcl([0, 0, 0])), bx = E.toThree(E.galToEcl([1, 0, 0])), by = E.toThree(E.galToEcl([0, 1, 0])), bz = E.toThree(E.galToEcl([0, 0, 1])); this.galM = [0, 1, 2].map(i => [bx[i] - o[i], by[i] - o[i], bz[i] - o[i]]); }
     this.galPts = points(pos, size, col, al); L.scene.add(this.galPts); this.reg(L, this.galPts, 1);
     // GC and Sun markers, Sun orbit
     const gc = E.toThree(E.galToEcl([R0, 0, 0]));
-    this.galMark = points([gc[0], gc[1], gc[2], 0, 0, 0], [12, 9], [1, 0.75, 0.4, 0.56, 0.82, 1], [1, 1]); L.scene.add(this.galMark); this.reg(L, this.galMark, 1);
+    this.galGC = gc; this.galShift = [0, 0, 0]; this.galMark = points([gc[0], gc[1], gc[2], 0, 0, 0], [12, 9], [1, 0.75, 0.4, 0.56, 0.82, 1], [1, 1]); L.scene.add(this.galMark); this.reg(L, this.galMark, 1);
     const orb = []; for (let k = 0; k <= 180; k++) { const a = k / 180 * 2 * Math.PI, t = gal(-R0 * Math.cos(a), -R0 * Math.sin(a), 0); orb.push(new THREE.Vector3(t[0], t[1], t[2])); }
-    const ol = new THREE.Line(new THREE.BufferGeometry().setFromPoints(orb), new THREE.LineDashedMaterial({ color: 0xff4b2b, transparent: true, opacity: 0.55, dashSize: 0.25, gapSize: 0.18 })); ol.computeLineDistances(); L.scene.add(ol); this.reg(L, ol, 0.55);
+    const ol = new THREE.Line(new THREE.BufferGeometry().setFromPoints(orb), new THREE.LineDashedMaterial({ color: 0xff4b2b, transparent: true, opacity: 0.55, dashSize: 0.25, gapSize: 0.18 })); ol.computeLineDistances(); L.scene.add(ol); this.reg(L, ol, 0.55); this.galOrb = ol;
     this.galArrow = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })); L.scene.add(this.galArrow); this.reg(L, this.galArrow, 0.9);
-    this.label(L, 'Galactic centre (Sgr A*)', () => gc, '', null);
+    this.label(L, 'Galactic centre (Sgr A*)', () => [gc[0] + this.galShift[0], gc[1] + this.galShift[1], gc[2] + this.galShift[2]], '', null);
     this.label(L, 'Sun and Earth', () => [0, 0, 0], '', () => this.focusOn('earth'));
-    this.label(L, 'Sun orbit, about 8.15 kpc', () => gal(-R0 * Math.cos(2.4), -R0 * Math.sin(2.4), 0), 'sm');
+    this.label(L, 'Sun orbit, about 8.15 kpc', () => { const q = gal(-R0 * Math.cos(2.4), -R0 * Math.sin(2.4), 0); return [q[0] + this.galShift[0], q[1] + this.galShift[1], q[2] + this.galShift[2]]; }, 'sm');
     this.label(L, 'Schematic disc, not a map', () => gal(9, 9, 0), 'sm');
-    for (const a of E.ANCHORS.filter(a => a.kind === 'lg' && a.d < 100)) { const p = E.toThree(E.anchorEcl(a)); this.label(L, a.name, () => p, 'sm'); }
+    for (const a of E.ANCHORS.filter(a => a.kind === 'lg' && a.d < 100)) { const p = E.toThree(E.anchorEcl(a)); this.label(L, a.name, () => [p[0] + this.galShift[0], p[1] + this.galShift[1], p[2] + this.galShift[2]], 'sm'); }
   }
   // ---- Local Group and beyond (unit: Mpc, Sun-centred)
   buildLG() {
@@ -276,7 +285,7 @@ export class Universe {
   setSkyPx() { const px = this.r.getPixelRatio(); if (this.stars) this.stars.material.uniforms.uPx.value = px; if (this.stars2) this.stars2.material.uniforms.uPx.value = px; if (this.dso) this.dso.material.uniforms.uPx.value = px; if (this.exo) this.exo.material.uniforms.uPx.value = px; if (this.qso) this.qso.material.uniforms.uPx.value = px; }
   update(frame) { // frame: {sunDir(three), orient R(ecl) , moonRel(three Earth radii), bodies(three AU), ...}
     const f = this.fades(); this.f = f; if (this.cosmos) { const k = sstep(24.2, 25.1, this.logd); this.cosmos.pm.userData.base = 1 - k; this.cosmos.sm.uniforms.uBoost.value = 1 + 9 * k; } this.setOpacity(this.layers.sky, f.sky);
-    this.flyStep(); this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
+    this.flyStep(); if (this.logd > 14 && this.logd < 26) this.galaxyStep(Math.round(this.galT * 1e4) / 1e4); this.yaw += this.vy; this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch + this.vp)); this.vy *= 0.93; this.vp *= 0.93; if (Math.abs(this.vy) < 1e-5) this.vy = 0;
     if (this.post) this.post.begin(); else this.r.clear();
     // sky: camera at origin
     { const s = this.layers.sky; const cp = Math.cos(this.pitch), dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)); this.cam.position.set(0, 0, 0); this.cam.up.set(0, 1, 0); this.cam.lookAt(dir.clone().multiplyScalar(-1)); this.cam.near = 1; this.cam.far = 2000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
