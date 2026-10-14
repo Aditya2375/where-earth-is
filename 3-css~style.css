@@ -195,3 +195,10 @@ form input:focus,form textarea:focus{border-color:var(--acc)}
 #dateJump button{background:#15161c;border:1px solid var(--line);color:var(--fg);font:400 11px var(--mono);cursor:pointer}
 #dateJump button:hover{border-color:var(--acc);color:var(--acc)}
 @media(max-width:860px){#dateQuery{flex-basis:100%;font-size:16px}.dateFields button{min-width:50px}}
+
+#camctl{position:absolute;left:20px;top:auto;bottom:calc(var(--tl-h,214px) + 10px);z-index:5;display:flex;align-items:center;gap:4px;font:400 11px var(--mono);letter-spacing:.06em;color:var(--dim);text-shadow:0 0 8px #000}
+#camctl span{margin-right:6px;text-transform:uppercase}
+#camctl button{background:rgba(8,10,16,.55);border:1px solid var(--faint);color:var(--dim);font:400 11px var(--mono);letter-spacing:.05em;padding:5px 10px;cursor:pointer;border-radius:99px;transition:color .2s,border-color .2s}
+#camctl button:hover{color:var(--fg)}
+#camctl button.on{color:var(--fg);border-color:var(--acc)}
+@media(max-width:860px){#camctl{left:8px;right:auto;top:auto;bottom:calc(var(--tl-h,210px) + 8px)}}
