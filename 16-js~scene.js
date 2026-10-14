@@ -39,7 +39,7 @@ export class Universe {
     this.r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); this.r.autoClear = false; this.r.setClearColor(0x000000, 1);
     this.cam = new THREE.PerspectiveCamera(46, 1, 0.1, 1e6);
-    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth';
+    this.yaw = 0.6; this.pitch = 0.32; this.logd = 4.4; this.focus = 'earth'; this.follow = true; this.freeTgt = null; this.follow = true; this.freeTgt = null;
     this.vy = 0; this.vp = 0; this.layers = {}; this.labels = []; this.mats = [];
     this.sunDir = new THREE.Vector3(1, 0, 0); this.simBodies = {}; this.regime = 'precision'; this.sunScale = 1;
     this.tier = TIER; this.buildSky(); this.buildEarth(); this.buildSolar(); this.bodies = buildBodies(this, this.solarL); this.buildGalaxy(); this.buildLG(); { const L = this.mkLayer('univ', GPC_KM); this.cosmos = buildCosmos(this, L, TIER); }
@@ -179,6 +179,10 @@ export class Universe {
     for (const n of names) this.label(L, n[0].toUpperCase() + n.slice(1), () => this.simPos(n), n === 'earth' ? '' : '', () => this.focusOn(n));
     this.label(L, 'Heliopause, about 121 AU', () => [121, 0, 0], 'sm');
   }
+  setFollow(on) { // follow: camera stays locked on the focused body as it moves. free: camera holds its place in space and bodies move past.
+    if (!on && this.follow) { const n = this.focus === 'moon' ? 'earth' : this.focus; this.freeTgt = { n, p: V3(this.simPos(n)), e: V3(this.simPos('earth')) }; }
+    this.follow = on;
+  }
   simPos(n) { const p = this.simBodies[n]; return p ? p : [0, 0, 0]; } // three coords, AU
   // ---- galaxy (unit: kpc, Sun-centred, ecliptic->three)
   buildGalaxy() {
@@ -249,7 +253,8 @@ export class Universe {
     const d = this.dist, dl = d / L.unit, cp = Math.cos(this.pitch);
     const dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw));
     let tgt = new THREE.Vector3(0, 0, 0);
-    if (L.name === 'solar') { tgt = V3(this.simPos(this.focus === 'moon' ? 'earth' : this.focus)); }
+    if (L.name === 'solar') { tgt = this.follow || !this.freeTgt ? V3(this.simPos(this.focus === 'moon' ? 'earth' : this.focus)) : this.freeTgt.p.clone(); }
+    else if (L.name === 'earth' && !this.follow && this.freeTgt) { tgt = this.freeTgt.e.clone().sub(V3(this.simPos('earth'))).multiplyScalar(E.AU / RE); }
     this.cam.position.copy(tgt).addScaledVector(dir, dl); this.cam.up.set(0, 1, 0); this.cam.lookAt(tgt);
     this.cam.near = dl * 0.0008; this.cam.far = dl * 4000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
   }
@@ -291,7 +296,7 @@ export class Universe {
     if (fr.moonOrbit && fr.moonOrbitKey !== this._mk) { this._mk = fr.moonOrbitKey; this.moonOrbit.geometry.setFromPoints(fr.moonOrbit.map(p => new THREE.Vector3(...p))); }
     // solar
     const names = this.solarNames, arr = this.bodyPts.geometry.attributes.position.array, szAttr = this.bodyPts.geometry.attributes.size, alA = this.bodyPts.geometry.attributes.alpha;
-    const show = fr.regime === 'precision';
+    const show = fr.regime === 'precision' || fr.regime === 'modeled';
     names.forEach((n, i) => { const p = fr.bodies[n] || [0, 0, 0]; this.simBodies[n] = p; arr[i * 3] = p[0]; arr[i * 3 + 1] = p[1]; arr[i * 3 + 2] = p[2]; alA.array[i] = (n === 'sun' || show) ? 1 : 0; });
     if (this.bodies) this.bodies.update(fr, alA, names);
     this.bodyPts.geometry.attributes.position.needsUpdate = true; alA.needsUpdate = true;
@@ -308,8 +313,27 @@ export class Universe {
     // galaxy arrows (velocity direction)
     if (fr.vGalDir && fr.vGalKey !== this._gk) { this._gk = fr.vGalKey; const d = fr.vGalDir; this.galArrow.geometry.setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(d[0] * 2.2, d[1] * 2.2, d[2] * 2.2)]); }
   }
+  // ---- occlusion for HTML labels: nothing is readable through a solid body
+  occluders(name) {
+    const L = this.layers[name]; if (!L || (this.f[name] || 0) < 0.25) return null;
+    this.camSetup(L); const o = this.cam.position.clone(), sp = [];
+    if (name === 'earth') { if (this.showEarth !== false) sp.push({ c: new THREE.Vector3(0, 0, 0), r: 0.995 }); if (this.moon && this.moon.visible) sp.push({ c: this.moon.position.clone(), r: 0.27 }); }
+    else if (name === 'solar' && this.bodies) { const AUK = 149597870.7; for (const b of this.bodies.list) { const p = this.simBodies[b.name]; if (p && b.m.visible) sp.push({ c: V3(p), r: b.s.R / AUK * 0.98, n: b.name }); } const sp0 = this.simBodies.sun; if (sp0 && this.regime !== 'before') sp.push({ c: V3(sp0), r: 0.00465 * 0.9, n: 'sun' }); }
+    return { o, sp };
+  }
+  hitSphere(o, d, sp, maxT) { const oc = o.clone().sub(sp.c), b = oc.dot(d), c = oc.dot(oc) - sp.r * sp.r, disc = b * b - c; if (disc <= 0) return false; const t = -b - Math.sqrt(disc); return t > 0 && t < maxT; }
+  labelOccluded(l, pos, occ) {
+    const P = V3(pos);
+    for (const k of ['earth', 'solar']) {
+      const O = occ[k]; if (!O) continue;
+      if (l.L.name === 'sky') { const d = P.clone().normalize(); for (const sp of O.sp) if (this.hitSphere(O.o, d, sp, 1e30)) return true; }
+      else if (l.L.name === k) { const dv = P.clone().sub(O.o), dist = dv.length(), d = dv.multiplyScalar(1 / dist); for (const sp of O.sp) { if (P.distanceTo(sp.c) < sp.r * 1.8 + 1e-9) continue; if (this.hitSphere(O.o, d, sp, dist)) return true; } }
+    }
+    return false;
+  }
   placeLabels() {
     const f = this.f, show = {}, placed = [];
+    const occ = { earth: this.occluders('earth'), solar: this.occluders('solar') };
     const order = this._lblOrder && this._lblOrder.n === this.labels.length ? this._lblOrder.a : (this._lblOrder = { n: this.labels.length, a: [...this.labels].sort((p, q) => (p.el.classList.contains('sm') ? 1 : 0) - (q.el.classList.contains('sm') ? 1 : 0)) }).a;
     for (const l of order) {
       const L = l.L, fv = f[L.name]; let vis = fv > 0.12; if (this.focus && BODY_R(this.focus) && this.logd < 6.4 && (L.name === "sky" || (L.name === "solar" && l.text.toLowerCase() === this.focus))) vis = false; if (vis && l.rng && (this.logd < l.rng[0] || this.logd > l.rng[1])) vis = false;
@@ -317,6 +341,7 @@ export class Universe {
       if (vis && L.name === 'earth' && l.el.classList.contains('sm') && this.logd > 5.3) vis = false;
       if (!vis) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
       if (L.name === 'sky') { const cp = Math.cos(this.pitch), dir = new THREE.Vector3(cp * Math.sin(this.yaw), Math.sin(this.pitch), cp * Math.cos(this.yaw)); this.cam.position.set(0, 0, 0); this.cam.up.set(0, 1, 0); this.cam.lookAt(dir.clone().multiplyScalar(-1)); this.cam.near = 1; this.cam.far = 2000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true); } else this.camSetup(L); const p = l.getPos(); const v = new THREE.Vector3(p[0], p[1], p[2]).project(this.cam);
+      if (this.labelOccluded(l, p, occ)) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
       if (v.z > 1 || v.z < -1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1) { if (l.on) { l.el.style.opacity = 0; l.el.style.pointerEvents = 'none'; l.on = false; } continue; }
       let x = (v.x * 0.5 + 0.5) * this.W + 8; const y = (-v.y * 0.5 + 0.5) * this.H;
       if (!l.w) { l.w = l.el.offsetWidth || 0; l.h = l.el.offsetHeight || 22; } const w = l.w || 120, bx = x, hh = (l.h || 22) / 2;
