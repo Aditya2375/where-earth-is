@@ -67,7 +67,7 @@ U = new Universe($('gl'), { stars: H.stars, landMask: H.landMask, gotoZ, zoomBy,
 
 // camera mode: follow keeps the view locked on the focused body, free holds the view in space
 function camMode(on) { U.setFollow(on); $('camFollow').classList.toggle('on', on); $('camFree').classList.toggle('on', !on); $('camFollow').setAttribute('aria-pressed', on); $('camFree').setAttribute('aria-pressed', !on); }
-function expMode(on) { U.setExplore(on); $('camExplore').classList.toggle('on', on); $('camExplore').setAttribute('aria-pressed', on); ['flyHint', 'flyF', 'flyB'].forEach(i => $(i).hidden = !on); if (on) { camMode(false); $('camFree').classList.remove('on'); $('camFollow').classList.remove('on'); } else camMode(true); }
+function expMode(on) { U.setExplore(on); $('camExplore').classList.toggle('on', on); $('camExplore').setAttribute('aria-pressed', on); ['flyHint', 'flyF', 'flyB'].forEach(i => $(i).hidden = !on); if (on) { if (window.gsap && Z.zt < 8.8) { U.focus = 'earth'; gsap.to(Z, { zt: 9.3, duration: 1.8, ease: 'power2.inOut', overwrite: true }); } camMode(false); $('camFree').classList.remove('on'); $('camFollow').classList.remove('on'); } else camMode(true); }
 $('camFollow').addEventListener('click', () => { if (U.explore) expMode(false); camMode(true); }); $('camFree').addEventListener('click', () => { if (U.explore) expMode(false); camMode(false); }); $('camExplore').addEventListener('click', () => expMode(!U.explore));
 [['flyF', 1], ['flyB', -1]].forEach(([i, v]) => { const b = $(i); b.addEventListener('pointerdown', e => { b.setPointerCapture(e.pointerId); U.flyHold = v; }); const off = () => { U.flyHold = 0; }; b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); });
 // scale chips
