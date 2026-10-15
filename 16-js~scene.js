@@ -238,7 +238,7 @@ export class Universe {
     // belts: statistical populations drawn from real orbital ranges. Particles are not catalogued objects.
     let sd = 99; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; }, gs = () => (rnd() + rnd() + rnd() + rnd() - 2) / 0.58, mkBelt = (n, a0, a1, ei, sg, c, sz, al0, tag) => { const el = [], P = [], S = [], C = [], A = []; for (let i = 0; i < n; i++) { const a = a0 + (a1 - a0) * Math.pow(rnd(), 1), e = Math.abs(gs()) * 0.06 + 0.02, inc = Math.abs(gs()) * ei; el.push([a, e, inc, rnd() * 360, rnd() * 360, rnd() * 360]); P.push(0, 0, 0); S.push(sz * (0.6 + rnd() * 0.8)); C.push(...c); A.push(al0 * (0.5 + 0.5 * rnd())); }
       const pt = points(P, S, C, A); L.scene.add(pt); this.reg(L, pt, 1); pt.userData.el = el; pt.userData.tag = tag; return pt; };
-    this.beltA = mkBelt(7000, 2.1, 3.3, 9, 0, [0.78, 0.72, 0.62], 1.2, 0.5, 'main'); this.beltK = mkBelt(6000, 30, 50, 8, 0, [0.62, 0.74, 0.95], 1.3, 0.45, 'kuiper');
+    this.beltA = mkBelt(14000, 2.1, 3.3, 9, 0, [0.85, 0.78, 0.66], 2.1, 0.85, 'main'); this.beltK = mkBelt(12000, 30, 50, 8, 0, [0.66, 0.78, 1], 2.0, 0.75, 'kuiper');
     // Oort cloud: sphere of icy bodies about 2,000 to 100,000 AU. Schematic density; no object in it has been imaged.
     { const P = [], S = [], C = [], A = []; for (let i = 0; i < 5000; i++) { const r = Math.exp(Math.log(2000) + rnd() * Math.log(50)), u = rnd() * 2 - 1, th = rnd() * 2 * Math.PI, q = Math.sqrt(1 - u * u); P.push(r * q * Math.cos(th), r * u, r * q * Math.sin(th)); S.push(1 + rnd() * 1.2); C.push(0.7, 0.85, 1); A.push(0.18 + rnd() * 0.25); }
       this.oort = points(P, S, C, A); L.scene.add(this.oort); this.reg(L, this.oort, 1); }
