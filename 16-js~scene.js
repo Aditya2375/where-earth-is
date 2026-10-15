@@ -328,7 +328,7 @@ export class Universe {
     let tgt = new THREE.Vector3(0, 0, 0);
     if (L.name === 'solar') { tgt = this.follow || !this.freeTgt ? V3(this.simPos(this.focus === 'moon' ? 'earth' : this.focus)) : this.freeTgt.p.clone(); }
     else if (L.name === 'earth' && !this.follow && this.freeTgt) { tgt = this.freeTgt.e.clone().sub(V3(this.simPos('earth'))).multiplyScalar(E.AU / RE); }
-    if (this.explore && L.name !== 'earth' && L.name !== 'sky') tgt = tgt.clone().addScaledVector(this.fly, 1 / L.unit);
+    if (this.explore && L.name !== 'sky') tgt = tgt.clone().addScaledVector(this.fly, 1 / L.unit);
     this.cam.position.copy(tgt).addScaledVector(dir, dl); this.cam.up.set(0, 1, 0); this.cam.lookAt(tgt);
     this.cam.near = dl * 0.0008; this.cam.far = dl * 4000; this.cam.updateProjectionMatrix(); this.cam.updateMatrixWorld(true);
   }
