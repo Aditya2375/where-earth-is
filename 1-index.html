@@ -16,7 +16,7 @@
 </head>
 <body>
 <div id="stage">
-  <canvas id="gl" aria-label="Interactive 3D view of Earth in the Solar System and Galaxy" role="img"></canvas>
+  <canvas id="gl" data-lenis-prevent aria-label="Interactive 3D view of Earth in the Solar System and Galaxy" role="img"></canvas>
   <div id="labels"></div>
 
   <header class="top">
@@ -37,7 +37,7 @@
     <button data-z="25.1">Entire universe</button>
     <div class="scalebar"><span id="scaleRead">--</span></div><div id="expRead" aria-live="polite"></div>
   </aside>
-  <div id="camctl" role="group" aria-label="Camera"><span>Camera</span><button id="camFollow" class="on" aria-pressed="true">Follow</button><button id="camFree" aria-pressed="false">Free</button><button id="camExplore" aria-pressed="false">Explore</button><span id="flyHint" hidden>W A S D Q E move, Shift boost, drag to look</span><button id="flyF" hidden aria-label="Fly forward">Fwd</button><button id="flyB" hidden aria-label="Fly back">Back</button></div>
+  <div id="camctl" role="group" aria-label="Camera"><span>Camera</span><button id="camFollow" class="on" aria-pressed="true">Follow</button><button id="camFree" aria-pressed="false">Free</button><button id="camExplore" aria-pressed="false">Explore</button><span id="flyHint" hidden>W A S D Q E move, Shift boost, drag to look</span><button id="flyF" hidden aria-label="Fly forward">Fwd</button><button id="flyB" hidden aria-label="Fly back">Back</button><button id="zoomIn" aria-label="Zoom in">In</button><button id="zoomOut" aria-label="Zoom out">Out</button></div>
 
   <section id="readout" class="panel" aria-live="off">
     <button id="roToggle" class="roToggle" aria-expanded="true">Position <span>-</span></button>
