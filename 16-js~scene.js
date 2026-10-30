@@ -319,7 +319,7 @@ export class Universe {
     });
     const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) lastPinch = 0; if (down && moved < 6 && performance.now() - down.t < 500) this.click(e.clientX, e.clientY); if (ptrs.size === 0) down = null; };
     c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
-    c.addEventListener('wheel', e => { e.preventDefault(); this.hooks.zoomBy(Math.sign(e.deltaY) * Math.min(1, Math.abs(e.deltaY) / 100) * 0.16); this.hooks.touched && this.hooks.touched(); }, { passive: false });
+    c.addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); this.hooks.zoomBy(Math.sign(e.deltaY) * Math.min(1, Math.abs(e.deltaY) / 100) * 0.16); this.hooks.touched && this.hooks.touched(); }, { passive: false });
     addEventListener('keyup', e => this.keys.delete(e.key.toLowerCase())); addEventListener('keydown', e => { if (e.target.closest('input,textarea,select')) return; if (this.explore) { const kk = e.key.toLowerCase(); if ('wasdqe'.includes(kk) && kk.length === 1 || kk.startsWith('arrow') || kk === 'shift') { this.keys.add(kk); if (kk.startsWith('arrow')) e.preventDefault(); } } if (e.key === '+' || e.key === '=') this.hooks.zoomBy(-0.2); if (e.key === '-') this.hooks.zoomBy(0.2); });
   }
   camSetup(L) {
