@@ -423,4 +423,4 @@ function buildDescent() {
     d.addEventListener('click', () => flash(id)); host.appendChild(d);
   });
   host.appendChild(el('p', 'dfoot', 'Values are the census scale text for each row (some are order-of-magnitude, marked ~ in the row). Rotation and non-acceleration effects are listed below.'));
-                                                                  }
+}
