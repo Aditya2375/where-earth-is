@@ -70,6 +70,7 @@ function camMode(on) { U.setFollow(on); $('camFollow').classList.toggle('on', on
 function expMode(on) { U.setExplore(on); $('camExplore').classList.toggle('on', on); $('camExplore').setAttribute('aria-pressed', on); ['flyHint', 'flyF', 'flyB'].forEach(i => $(i).hidden = !on); if (on) { if (window.gsap && Z.zt < 8.8) { U.focus = 'earth'; gsap.to(Z, { zt: 9.3, duration: 1.8, ease: 'power2.inOut', overwrite: true }); } camMode(false); $('camFree').classList.remove('on'); $('camFollow').classList.remove('on'); } else camMode(true); }
 $('camFollow').addEventListener('click', () => { if (U.explore) expMode(false); camMode(true); }); $('camFree').addEventListener('click', () => { if (U.explore) expMode(false); camMode(false); }); $('camExplore').addEventListener('click', () => expMode(!U.explore));
 [['flyF', 1], ['flyB', -1]].forEach(([i, v]) => { const b = $(i); b.addEventListener('pointerdown', e => { b.setPointerCapture(e.pointerId); U.flyHold = v; }); const off = () => { U.flyHold = 0; }; b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); });
+[['zoomIn', -1], ['zoomOut', 1]].forEach(([i, v]) => { const b = $(i); let iv = 0; const step = () => zoomBy(v * 0.14); b.addEventListener('pointerdown', e => { b.setPointerCapture(e.pointerId); step(); clearInterval(iv); iv = setInterval(step, 90); }); const off = () => { clearInterval(iv); iv = 0; }; b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); });
 // scale chips
 const MOB = innerWidth < 860, ZE = MOB ? 4.8 : 4.4;
 document.querySelectorAll('#scale button').forEach(b => b.addEventListener('click', () => { U.focus = 'earth'; let z = parseFloat(b.dataset.z); if (z < 4.5) z = ZE; gotoZ(z); if (z >= 12.5 && z < 19) lookFromNGP(); }));
@@ -422,4 +423,4 @@ function buildDescent() {
     d.addEventListener('click', () => flash(id)); host.appendChild(d);
   });
   host.appendChild(el('p', 'dfoot', 'Values are the census scale text for each row (some are order-of-magnitude, marked ~ in the row). Rotation and non-acceleration effects are listed below.'));
-      }
+                                                                  }
