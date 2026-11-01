@@ -1,5 +1,5 @@
 {
-  "buildCommand": "sh build.sh",
+  "buildCommand": "sh build.sh && cp index.html public/ && for d in css js vendor fonts data; do cp -r \"$d\" public/; done",
   "outputDirectory": "public",
   "installCommand": "true",
   "framework": null,
